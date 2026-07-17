@@ -1,0 +1,10 @@
+node_modules/
+dist/
+tmp/
+.claude/
+*.tsbuildinfo
+vitest.config.js
+vitest.config.d.ts
+.env
+.env.*
+!.env.example
