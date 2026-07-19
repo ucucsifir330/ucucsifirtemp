@@ -1,5 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;700&family=Instrument+Serif:ital@1&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Anton+SC&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource/anton-sc";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
+@import "@fontsource/space-mono/400-italic.css";
+@import "@fontsource/space-mono/700-italic.css";
 
 @font-face {
   font-family: 'PP Neue Machina';
@@ -42,6 +46,67 @@
 html, body { background: #07040E; color: #fff; overflow-x: hidden; overflow-y: auto; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 ::selection { background: rgba(164, 143, 255, .35); color: #fff; }
 :focus-visible { outline: 1px solid rgba(164, 143, 255, .7); outline-offset: 3px; }
+
+html,
+body {
+  cursor: none;
+}
+
+html body *,
+html body [class] {
+  cursor: none;
+}
+
+.custom-cursor {
+  position: fixed;
+  z-index: 200;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.custom-cursor[data-visible="true"] { opacity: 1; }
+
+.custom-cursor__dot,
+.custom-cursor__follower {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 999px;
+  will-change: transform;
+}
+
+.custom-cursor__dot {
+  width: 28px;
+  height: 28px;
+  background: var(--accent);
+  box-shadow: 0 0 22px rgb(164 143 255 / .95);
+  transition: width 180ms cubic-bezier(.16, 1, .3, 1), height 180ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.custom-cursor__follower {
+  width: 18px;
+  height: 18px;
+  background: rgb(207 193 255 / .9);
+  box-shadow: 0 0 16px rgb(164 143 255 / .72);
+  transition: transform .4s, width 180ms cubic-bezier(.16, 1, .3, 1), height 180ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.custom-cursor[data-active="true"] .custom-cursor__dot {
+  width: 36px;
+  height: 36px;
+}
+
+.custom-cursor[data-active="true"] .custom-cursor__follower {
+  width: 24px;
+  height: 24px;
+}
+
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .custom-cursor { display: none; }
+}
 .font-galgo {
   font-family: 'Galgo', sans-serif;
   font-weight: 200;

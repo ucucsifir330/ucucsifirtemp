@@ -137,20 +137,14 @@ export default function VortexShader({
     window.addEventListener("pointermove", onPointerMove);
 
     let awakenedAt: number | null = null;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && awakenedAt === null) awakenedAt = performance.now();
-      },
-      { threshold: 0.25 },
-    );
-    observer.observe(container);
-
+    let isVisible = false;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const safeRotationPeriod = Math.max(rotationPeriod, 0.001);
     const startedAt = performance.now();
     let animationFrame = 0;
 
     const render = (now: number) => {
+      animationFrame = 0;
       const elapsed = (now - startedAt) / 1000;
       const revealProgress = awakenedAt === null ? 0 : Math.min((now - awakenedAt) / 1500, 1);
       const easeOut = 1 - Math.pow(1 - revealProgress, 3);
@@ -165,9 +159,23 @@ export default function VortexShader({
       program.uniforms.uMouse.value = [currentMouse.x, currentMouse.y];
 
       renderer.render({ scene: mesh });
-      animationFrame = window.requestAnimationFrame(render);
+      if (isVisible) animationFrame = window.requestAnimationFrame(render);
     };
-    animationFrame = window.requestAnimationFrame(render);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+        if (!isVisible) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = 0;
+          return;
+        }
+
+        if (awakenedAt === null) awakenedAt = performance.now();
+        if (!animationFrame) animationFrame = window.requestAnimationFrame(render);
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(container);
 
     return () => {
       window.cancelAnimationFrame(animationFrame);

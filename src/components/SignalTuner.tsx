@@ -112,6 +112,7 @@ export default function SignalTuner() {
   const reduce = useReducedMotion();
   const [active, setActive] = useState<Station>(STATIONS[0]);
 
+  const rootRef = useRef<HTMLElement | null>(null);
   const pathRef = useRef<SVGPathElement | null>(null);
   const ampTargetRef = useRef(STATIONS[0].amp);
 
@@ -125,6 +126,7 @@ export default function SignalTuner() {
 
     let amp = ampTargetRef.current;
     let raf = 0;
+    let isVisible = false;
 
     const draw = (t: number) => {
       amp += (ampTargetRef.current - amp) * 0.04;
@@ -146,15 +148,34 @@ export default function SignalTuner() {
     }
 
     const loop = (t: number) => {
+      raf = 0;
       draw(t);
-      raf = requestAnimationFrame(loop);
+      if (isVisible) raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+        if (!isVisible) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+          return;
+        }
+
+        if (!raf) raf = requestAnimationFrame(loop);
+      },
+      { threshold: 0.25 },
+    );
+    if (rootRef.current) observer.observe(rootRef.current);
+    draw(0);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
   }, [reduce]);
 
   return (
-    <section className="st-root">
+    <section ref={rootRef} className="st-root">
       <style>{CSS}</style>
 
       <div className="st-kicker">

@@ -7,6 +7,7 @@ import App, {
   formatClock,
   shouldSeekHeroVideo,
 } from "./App";
+import CustomCursor from "./components/CustomCursor";
 
 afterEach(() => {
   cleanup();
@@ -18,7 +19,66 @@ beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 });
 
-describe("SynapseX landing page", () => {
+it("renders the purple custom cursor layers", () => {
+  render(
+    <>
+      <button type="button">İletişim</button>
+      <CustomCursor />
+    </>,
+  );
+
+  const dot = screen.getByTestId("cursor-dot");
+  const follower = screen.getByTestId("cursor-ring");
+  const contactButton = screen.getByRole("button", { name: "İletişim" });
+  fireEvent.mouseMove(contactButton, {
+    clientX: 120,
+    clientY: 80,
+  });
+
+  expect(dot).toHaveStyle({ transform: "translate3d(120px, 80px, 0)" });
+  expect(follower).toHaveStyle({ transform: "translate3d(120px, 80px, 0)" });
+  expect(follower.parentElement).toHaveAttribute("data-active", "true");
+  expect(contactButton).toHaveStyle({ cursor: "none" });
+
+  const styles = readFileSync("src/index.css", "utf8");
+  expect(styles).toContain("width: 28px;");
+  expect(styles).toContain("height: 28px;");
+  expect(styles).not.toContain("!important");
+  expect(styles).toContain("html body [class]");
+});
+
+describe("Üç Üç Sıfır landing page", () => {
+  it("uses Üç Üç Sıfır in the project metadata", () => {
+    const html = readFileSync("index.html", "utf8");
+    const packageJson = readFileSync("package.json", "utf8");
+
+    expect(html).toContain("<title>Üç Üç Sıfır</title>");
+    expect(packageJson).toContain('"name": "uc-uc-sifir"');
+  });
+
+  it("keeps public media in semantic directories", () => {
+    expect(existsSync("public/media/hero/abstract-sculpture.png")).toBe(true);
+    expect(existsSync("public/media/hero/ringed-planet.png")).toBe(true);
+    expect(existsSync("public/media/hero/floating-cube.png")).toBe(true);
+    expect(existsSync("public/media/hero/hero-model.webm")).toBe(true);
+    expect(existsSync("public/media/backgrounds/cosmic-field.png")).toBe(true);
+    expect(existsSync("public/media/backgrounds/vortex-texture.png")).toBe(true);
+    expect(existsSync("public/media/decorations/marbled-orb.png")).toBe(true);
+    expect(existsSync("public/media/brand/uc-uc-sifir-logo.png")).toBe(true);
+    expect(
+      existsSync("public/Untitled - 19 Temmuz 2026 04.57.12-1.png"),
+    ).toBe(false);
+  });
+
+  it("composes the page from focused section modules", () => {
+    expect(existsSync("src/sections/HeroSection.tsx")).toBe(true);
+    expect(existsSync("src/sections/CinematicSection.tsx")).toBe(true);
+    expect(existsSync("src/sections/LogoSection.tsx")).toBe(true);
+    expect(readFileSync("src/App.tsx", "utf8")).toContain(
+      'from "./sections/HeroSection"',
+    );
+  });
+
   it("starts at the very top when the loading screen is shown", () => {
     render(<App />);
 
@@ -37,7 +97,7 @@ describe("SynapseX landing page", () => {
     expect(loader).toHaveAttribute("data-phase", "loading");
     expect(screen.getByTestId("loading-logo")).toHaveAttribute(
       "src",
-      "/uc-uc-sifir-logo.png",
+      "/media/brand/uc-uc-sifir-logo.png",
     );
     expect(screen.getByTestId("loading-ring")).toBeInTheDocument();
 
@@ -84,15 +144,15 @@ describe("SynapseX landing page", () => {
     expect(screen.getByTestId("nav-wordmark")).not.toHaveClass("bg-white/10");
     expect(screen.queryByTestId("nav-logo")).not.toBeInTheDocument();
     expect(screen.getByTestId("nav-wordmark-text").parentElement).toHaveClass(
-      "text-[24px]",
-      "sm:text-[32px]",
+      "text-[64px]",
+      "sm:text-[84px]",
     );
     expect(screen.getByTestId("nav-tagline")).toHaveTextContent("#notlikeothers");
     expect(screen.getByTestId("nav-tagline")).toHaveClass(
-      "text-[24px]",
-      "sm:text-[32px]",
+      "text-[64px]",
+      "sm:text-[84px]",
     );
-    expect(screen.getByTestId("nav-copyright")).toHaveStyle({ top: "0.05em" });
+    expect(screen.getByTestId("nav-copyright")).toHaveStyle({ top: "2px" });
     expect(screen.queryByLabelText("Toggle navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "About" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Metrics" })).not.toBeInTheDocument();
@@ -152,12 +212,12 @@ describe("SynapseX landing page", () => {
     expect(screen.getAllByRole("button", { name: /Yazılım|Prodüksiyon|Büyüme|Diğer/ })).toHaveLength(4);
     expect(screen.getByTestId("signal-background")).toHaveAttribute(
       "src",
-      "/cosmic-background.png",
+      "/media/backgrounds/cosmic-field.png",
     );
     expect(screen.getByTestId("signal-background")).toHaveClass("opacity-45");
     expect(screen.getByTestId("vortex-shader")).toHaveAttribute(
       "data-src",
-      "/metrics-background.png",
+      "/media/backgrounds/vortex-texture.png",
     );
     expect(screen.getByTestId("vortex-shader")).toHaveClass("z-0", "opacity-45");
     expect(screen.getByRole("button", { name: /Sinyali gönder/i })).toBeEnabled();
@@ -165,7 +225,7 @@ describe("SynapseX landing page", () => {
     expect(screen.queryByRole("button", { name: /Download/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Adaptive\s*Intelligence/)).not.toBeInTheDocument();
     expect(screen.queryByText("Three layers. Zero friction.")).not.toBeInTheDocument();
-    expect(screen.queryByText(/2026 SynapseX Labs/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/2026 Üç Üç Sıfır Labs/)).not.toBeInTheDocument();
   });
 
   it("does not show the temporary visual gallery on the homepage", () => {
@@ -180,9 +240,9 @@ describe("SynapseX landing page", () => {
     const visuals = container.querySelector('[data-testid="hero-visuals"]');
     expect(visuals).toBeInTheDocument();
     expect(visuals?.querySelectorAll("img")).toHaveLength(2);
-    expect(visuals?.querySelector('img[src="/Untitled - 19 Temmuz 2026 04.57.12-1.png"]')).toBeInTheDocument();
-    expect(visuals?.querySelector('img[src="/Untitled - 19 Temmuz 2026 04.57.12-2.png"]')).toBeInTheDocument();
-    expect(visuals?.querySelector('img[src="/Untitled - 19 Temmuz 2026 04.57.12-3.png"]')).not.toBeInTheDocument();
+    expect(visuals?.querySelector('img[src="/media/hero/abstract-sculpture.png"]')).toBeInTheDocument();
+    expect(visuals?.querySelector('img[src="/media/hero/ringed-planet.png"]')).toBeInTheDocument();
+    expect(visuals?.querySelector('img[src="/media/hero/floating-cube.png"]')).not.toBeInTheDocument();
   });
 
   it("makes the hero objects float and react to pointer hover", () => {
@@ -205,7 +265,7 @@ describe("SynapseX landing page", () => {
     const visual = container.querySelector('[data-testid="hero-background-visual"]');
     expect(visual).toHaveAttribute(
       "src",
-      "/Untitled - 19 Temmuz 2026 04.57.12-3.png",
+      "/media/hero/floating-cube.png",
     );
     expect(visual).toHaveClass("hero-cube", "z-[15]");
     const styles = readFileSync("src/index.css", "utf8");
@@ -298,12 +358,26 @@ describe("SynapseX landing page", () => {
     expect(styles).not.toContain("family=Geist:wght");
   });
 
+  it("self-hosts every required font and removes unused font resources", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+    const packageJson = readFileSync("package.json", "utf8");
+
+    expect(styles).not.toContain("fonts.googleapis.com");
+    expect(styles).toContain("@fontsource/anton-sc");
+    expect(styles).toContain("@fontsource/space-mono");
+    expect(styles).toContain("@fontsource-variable/instrument-sans");
+    expect(packageJson).not.toContain('"lucide-react"');
+    expect(existsSync("public/fonts/Galgo-Light.otf")).toBe(false);
+    expect(existsSync("public/fonts/Geist-Regular.ttf")).toBe(false);
+    expect(existsSync("public/fonts/GeistMono-Regular.ttf")).toBe(false);
+  });
+
   it("replaces the performance metrics with the 330 logo", () => {
     render(<App />);
 
     expect(screen.getByTestId("metrics-logo")).toHaveAttribute(
       "src",
-      "/uc-uc-sifir-logo.png",
+      "/media/brand/uc-uc-sifir-logo.png",
     );
     expect(screen.getByTestId("metrics-logo")).toHaveAttribute(
       "alt",
@@ -590,13 +664,33 @@ describe("SynapseX landing page", () => {
     expect(veil).toHaveClass("z-[15]");
   });
 
+  it("pauses the vortex render loop while its section is off-screen", () => {
+    const shader = readFileSync("src/components/VortexShader.tsx", "utf8");
+
+    expect(shader).toContain("let isVisible = false;");
+    expect(shader).toContain("isVisible = entry.isIntersecting;");
+    expect(shader).toContain(
+      "if (isVisible) animationFrame = window.requestAnimationFrame(render);",
+    );
+  });
+
+  it("pauses the tuner waveform loop while its section is off-screen", () => {
+    const tuner = readFileSync("src/components/SignalTuner.tsx", "utf8");
+
+    expect(tuner).toContain("let isVisible = false;");
+    expect(tuner).toContain("isVisible = entry.isIntersecting;");
+    expect(tuner).toContain(
+      "if (isVisible) raf = requestAnimationFrame(loop);",
+    );
+  });
+
   it("uses the supplied globe image for every Clavis Futuri separator", () => {
     const { container } = render(<App />);
     const orbs = container.querySelectorAll('[data-testid="clavis-futuri-orb"]');
 
     expect(orbs).toHaveLength(8);
     for (const orb of orbs) {
-      expect(orb).toHaveAttribute("src", "/küre.png");
+      expect(orb).toHaveAttribute("src", "/media/decorations/marbled-orb.png");
       expect(orb).toHaveAttribute("alt", "");
       expect(orb).toHaveClass("h-[.28em]", "w-[.28em]");
     }
@@ -632,7 +726,7 @@ describe("SynapseX landing page", () => {
     );
     expect(styles).toContain("animation: galaxy-drift-near");
     expect(styles).toContain("translate3d(");
-    expect(wordmark).toHaveClass("z-10");
+    expect(wordmark).toHaveClass("z-[16]");
     expect(model?.parentElement).toHaveClass("z-20");
   });
 
@@ -715,7 +809,7 @@ it("uses the original local WebM for the hero scene", () => {
     container
       .querySelector('[data-testid="hero-video"] source')
       ?.getAttribute("src"),
-  ).toBe("/ucucmano.webm");
+  ).toBe("/media/hero/hero-model.webm");
 });
 
 it("starts the supplied hero video on its first frame", () => {

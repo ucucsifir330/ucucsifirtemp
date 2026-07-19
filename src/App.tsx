@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import SignalTuner from "./components/SignalTuner";
 import VortexShader from "./components/VortexShader";
+import CustomCursor from "./components/CustomCursor";
+import { HERO_FLOATING_VISUALS, MEDIA } from "./config/media";
+import CinematicSection from "./sections/CinematicSection";
+import HeroSection from "./sections/HeroSection";
+import LogoSection from "./sections/LogoSection";
 
-const videos = {
-  hero: "/ucucmano.webm",
-};
-const heroVisuals = [
-  "/Untitled - 19 Temmuz 2026 04.57.12-1.png",
-  "/Untitled - 19 Temmuz 2026 04.57.12-2.png",
-];
 const chars =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~|}{[]:;?><";
 const random = () => chars[Math.floor(Math.random() * chars.length)];
@@ -223,7 +220,7 @@ function HeroVisuals({ pointer }: { pointer: HeroPointer }) {
       aria-hidden="true"
       className="hero-visuals pointer-events-none absolute inset-0 z-[25]"
     >
-      {heroVisuals.map((src, index) => (
+      {HERO_FLOATING_VISUALS.map((src, index) => (
         <FloatingHeroObject
           key={src}
           src={src}
@@ -355,7 +352,7 @@ function LoadingScreen({
         <img
           data-testid="loading-logo"
           className={`loading-logo ${logoGrowing ? "loading-logo--growing" : ""}`}
-          src="/uc-uc-sifir-logo.png"
+          src={MEDIA.brand.logo}
           alt="Üç Üç Sıfır"
         />
       </div>
@@ -407,31 +404,12 @@ function ReactiveLogo() {
       >
         <img
           data-testid="metrics-logo"
-          src="/uc-uc-sifir-logo.png"
+          src={MEDIA.brand.logo}
           alt="Üç Üç Sıfır"
           className="h-auto w-full object-contain opacity-70"
         />
       </motion.div>
     </div>
-  );
-}
-
-function Cinematic() {
-  return (
-    <section className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#08060d]/70 px-5 py-28 sm:px-8 lg:py-36">
-      <img
-        data-testid="signal-background"
-        src="/cosmic-background.png"
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover opacity-45"
-      />
-      <SectionTransition edge="top" />
-      <SectionTransition edge="bottom" />
-      <div className="relative z-20 mx-auto w-full max-w-[74rem] -translate-y-8">
-        <SignalTuner />
-      </div>
-    </section>
   );
 }
 
@@ -443,7 +421,7 @@ function ClavisFuturiSequence({ hidden = false }: { hidden?: boolean }) {
           <span className="clavis-futuri-label opacity-[.075]">CLAVIS FUTURI</span>
           <img
             data-testid="clavis-futuri-orb"
-            src="/küre.png"
+            src={MEDIA.decorations.marbledOrb}
             alt=""
             className="clavis-futuri-orb mx-[.13em] inline-block h-[.28em] w-[.28em] shrink-0 object-contain opacity-[.68] brightness-125 drop-shadow-[0_0_16px_rgb(178_139_255_/_0.48)]"
           />
@@ -566,6 +544,7 @@ function App() {
   };
   return (
     <main className="relative isolate" style={{ fontFamily: '"Space Mono", monospace' }}>
+      <CustomCursor />
       {loadingPhase !== "complete" && <LoadingScreen phase={loadingPhase} />}
       <div
         className={`site-content ${
@@ -581,7 +560,8 @@ function App() {
       <div aria-hidden="true" className="grain-overlay" />
       <GalaxyBackground />
       <Nav visible={entered} />
-      <section
+       <HeroSection>
+       <section
         data-testid="hero-stage"
         onMouseMove={moveHero}
         onMouseLeave={() => {
@@ -605,7 +585,7 @@ function App() {
           objectClassName="hero-object--cube z-[15]"
           imageClassName="hero-cube z-[15]"
           imageTestId="hero-background-visual"
-          src="/Untitled - 19 Temmuz 2026 04.57.12-3.png"
+          src={MEDIA.hero.floatingCube}
           index={3}
           pointer={heroPointer}
           anchor={[0.84, 0.69]}
@@ -621,7 +601,7 @@ function App() {
             aria-hidden="true"
             className="hero-model-video pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none -translate-x-1/2 object-contain object-center lg:left-[72%]"
           >
-            <source src={videos.hero} type='video/webm; codecs="vp9"' />
+            <source src={MEDIA.hero.modelVideo} type='video/webm; codecs="vp9"' />
           </video>
         </div>
         <div
@@ -700,14 +680,16 @@ function App() {
           </span>
           <span className="scroll-line" />
         </motion.div>
-      </section>
-      <Cinematic />
-      <section
+       </section>
+       </HeroSection>
+       <CinematicSection />
+       <LogoSection>
+       <section
         data-testid="logo-section"
         className="relative flex min-h-screen items-start overflow-hidden px-5 pb-32 pt-8 sm:px-8 sm:pb-40 sm:pt-10"
       >
         <VortexShader
-          src="/metrics-background.png"
+          src={MEDIA.backgrounds.vortexTexture}
           focalPoint={[0.5, 0.84]}
           className="z-0 opacity-45"
         />
@@ -737,7 +719,8 @@ function App() {
           <span data-testid="logo-frequency" className="justify-self-center">88.1 — 107.9 MHZ</span>
           <span className="justify-self-end">{clock}</span>
         </div>
-      </section>
+       </section>
+       </LogoSection>
       </div>
     </main>
   );
