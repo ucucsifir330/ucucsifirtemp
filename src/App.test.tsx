@@ -87,10 +87,46 @@ describe("SynapseX landing page", () => {
       "text-[24px]",
       "sm:text-[32px]",
     );
+    expect(screen.getByTestId("nav-tagline")).toHaveTextContent("#notlikeothers");
+    expect(screen.getByTestId("nav-tagline")).toHaveClass(
+      "text-[24px]",
+      "sm:text-[32px]",
+    );
     expect(screen.getByTestId("nav-copyright")).toHaveStyle({ top: "0.05em" });
     expect(screen.queryByLabelText("Toggle navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "About" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Metrics" })).not.toBeInTheDocument();
+  });
+
+  it("places WhatsApp and email contact actions beneath #notlikeothers", () => {
+    render(<App />);
+
+    const contactActions = screen.getByTestId("hero-contact-actions");
+    expect(contactActions).toHaveClass("fixed", "right-4", "top-28", "z-50");
+    const whatsapp = screen.getByRole("button", { name: "WhatsApp ile iletişime geç" });
+    expect(whatsapp).toBeInTheDocument();
+    expect(whatsapp).toHaveClass("size-[96px]", "rounded-[24px]");
+    expect(whatsapp).toHaveClass("liquid-glass-button");
+    expect(whatsapp.querySelector("svg path")).toHaveAttribute("fill", "rgb(255, 255, 255)");
+    const email = screen.getByRole("button", { name: "E-posta ile iletişime geç" });
+    expect(email).not.toHaveTextContent("E-POSTA");
+    expect(email).toHaveClass("size-[96px]", "rounded-[24px]");
+    expect(email).toHaveClass("liquid-glass-button");
+    expect(email.querySelector("svg path")).toHaveAttribute("fill", "rgb(255, 255, 255)");
+  });
+
+  it("keeps contact actions optically glassy while leaving the hero visible through them", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(".liquid-glass-button {");
+    expect(styles).toContain("rgb(8 7 16 / .06)");
+    expect(styles).toContain("border: 1px solid rgb(255 255 255 / .42)");
+    expect(styles).toContain("backdrop-filter: blur(10px) saturate(130%)");
+    expect(styles).toContain(".liquid-glass-button::before");
+    expect(styles).toContain(".liquid-glass-button::after");
+    expect(styles).toContain(".liquid-glass-button > svg");
+    expect(styles).toContain("conic-gradient");
+    expect(styles).toContain("@media (prefers-reduced-transparency: reduce)");
   });
 
   it("decrypts the Üç Üç Sıfır wordmark when hovered", () => {
@@ -111,10 +147,9 @@ describe("SynapseX landing page", () => {
   it("renders the specified content landmarks", () => {
     render(<App />);
 
-    expect(screen.getByText("Yayın")).toBeInTheDocument();
-    expect(screen.getByText("çok yakında.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Yayın çok yakında." })).toBeInTheDocument();
     expect(screen.getByText("Frekans ayarla")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Marka|Dijital|Kampanya|Diğer/ })).toHaveLength(4);
+    expect(screen.getAllByRole("button", { name: /Yazılım|Prodüksiyon|Büyüme|Diğer/ })).toHaveLength(4);
     expect(screen.getByTestId("signal-background")).toHaveAttribute(
       "src",
       "/cosmic-background.png",
@@ -133,6 +168,136 @@ describe("SynapseX landing page", () => {
     expect(screen.queryByText(/2026 SynapseX Labs/)).not.toBeInTheDocument();
   });
 
+  it("does not show the temporary visual gallery on the homepage", () => {
+    render(<App />);
+
+    expect(screen.queryByTestId("homepage-visuals")).not.toBeInTheDocument();
+  });
+
+  it("layers the supplied transparent visuals into the hero", () => {
+    const { container } = render(<App />);
+
+    const visuals = container.querySelector('[data-testid="hero-visuals"]');
+    expect(visuals).toBeInTheDocument();
+    expect(visuals?.querySelectorAll("img")).toHaveLength(2);
+    expect(visuals?.querySelector('img[src="/Untitled - 19 Temmuz 2026 04.57.12-1.png"]')).toBeInTheDocument();
+    expect(visuals?.querySelector('img[src="/Untitled - 19 Temmuz 2026 04.57.12-2.png"]')).toBeInTheDocument();
+    expect(visuals?.querySelector('img[src="/Untitled - 19 Temmuz 2026 04.57.12-3.png"]')).not.toBeInTheDocument();
+  });
+
+  it("makes the hero objects float and react to pointer hover", () => {
+    render(<App />);
+
+    const object = screen.getByTestId("hero-object-1");
+    expect(object).toHaveAttribute("data-hovered", "false");
+    expect(object).toHaveClass("hero-object");
+
+    fireEvent.mouseEnter(object);
+    expect(object).toHaveAttribute("data-hovered", "true");
+
+    fireEvent.mouseLeave(object);
+    expect(object).toHaveAttribute("data-hovered", "false");
+  });
+
+  it("places the supplied third visual as a cube behind the hero model", () => {
+    const { container } = render(<App />);
+
+    const visual = container.querySelector('[data-testid="hero-background-visual"]');
+    expect(visual).toHaveAttribute(
+      "src",
+      "/Untitled - 19 Temmuz 2026 04.57.12-3.png",
+    );
+    expect(visual).toHaveClass("hero-cube", "z-[15]");
+    const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain(".hero-cube {\n  top: 61%;\n  right: 9%;");
+  });
+
+  it("makes the background cube float and react to pointer hover", () => {
+    render(<App />);
+
+    const cube = screen.getByTestId("hero-cube-object");
+    expect(cube).toHaveAttribute("data-hovered", "false");
+
+    fireEvent.mouseEnter(cube);
+    expect(cube).toHaveAttribute("data-hovered", "true");
+
+    fireEvent.mouseLeave(cube);
+    expect(cube).toHaveAttribute("data-hovered", "false");
+  });
+
+  it("moves all three hero objects when the pointer approaches them", () => {
+    render(<App />);
+
+    const hero = screen.getByTestId("hero-stage");
+    hero.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 1000, height: 600 }) as DOMRect;
+    fireEvent.mouseMove(hero, { clientX: 900, clientY: 450 });
+
+    expect(screen.getByTestId("hero-object-1")).toHaveAttribute(
+      "data-reactive",
+      "true",
+    );
+    expect(screen.getByTestId("hero-object-2")).toHaveAttribute(
+      "data-reactive",
+      "true",
+    );
+    expect(screen.getByTestId("hero-cube-object")).toHaveAttribute(
+      "data-reactive",
+      "true",
+    );
+  });
+
+  it("keeps hero objects at a fixed scale while restoring their proximity glow", () => {
+    const app = readFileSync("src/App.tsx", "utf8");
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(app).toContain("scale: 1,");
+    expect(styles).toContain('.hero-object[data-glowing="true"]::before');
+  });
+
+  it("activates the cube glow only when the pointer is directly over it", () => {
+    render(<App />);
+
+    const hero = screen.getByTestId("hero-stage");
+    const cube = screen.getByTestId("hero-cube-object");
+    hero.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 1000, height: 600 }) as DOMRect;
+    cube.getBoundingClientRect = () =>
+      ({ left: 780, top: 360, right: 900, bottom: 480, width: 120, height: 120 }) as DOMRect;
+
+    fireEvent.mouseMove(hero, { clientX: 840, clientY: 414 });
+    expect(cube).toHaveAttribute(
+      "data-glowing",
+      "true",
+    );
+
+    fireEvent.mouseMove(hero, { clientX: 700, clientY: 414 });
+    expect(cube).toHaveAttribute(
+      "data-glowing",
+      "false",
+    );
+  });
+
+  it("positions the ringed visual lower and slightly left in the hero", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(".hero-visual--2 {\n  top: 74%;\n  right: 3%;");
+  });
+
+  it("rotates the first hero visual 260 degrees", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(".hero-visual--1 {\n  top: 62%;\n  right: 0%;\n  width: clamp(104px, 13vw, 250px);\n  transform: rotate(260deg);");
+  });
+
+  it("uses the local Geist font files instead of requiring a remote font request", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain("src: url('/fonts/Geist-VariableFont_wght.ttf') format('truetype')");
+    expect(styles).toContain("src: url('/fonts/GeistMono-VariableFont_wght.ttf') format('truetype')");
+    expect(styles).not.toContain("family=Geist:wght");
+  });
+
   it("replaces the performance metrics with the 330 logo", () => {
     render(<App />);
 
@@ -145,6 +310,7 @@ describe("SynapseX landing page", () => {
       "Üç Üç Sıfır",
     );
     expect(screen.getByTestId("metrics-logo")).toHaveClass("object-contain");
+    expect(screen.getByTestId("metrics-logo")).toHaveClass("opacity-70");
     expect(screen.queryByText("Performance Metrics")).not.toBeInTheDocument();
     expect(screen.queryByText("Synaptic Latency")).not.toBeInTheDocument();
   });
@@ -181,13 +347,14 @@ describe("SynapseX landing page", () => {
     );
   });
 
-  it("adds a frequency status bar beneath the 330 logo", () => {
+  it("anchors the Geist frequency status bar to the bottom of the page", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 0, 1, 21, 7, 52));
     render(<App />);
 
     const statusBar = screen.getByTestId("logo-status-bar");
-    expect(statusBar).toHaveClass("border-t", "w-screen");
+    expect(statusBar).toHaveClass("absolute", "inset-x-0", "bottom-3", "border-t");
+    expect(statusBar).toHaveStyle({ fontFamily: "Geist, sans-serif" });
     expect(statusBar).toHaveTextContent("© 2026 TÜM HAKLARI SAKLIDIR");
     expect(statusBar).toHaveTextContent("88.1 — 107.9 MHZ");
     expect(statusBar).toHaveTextContent("21:07:52");
@@ -211,121 +378,167 @@ describe("SynapseX landing page", () => {
     act(() => vi.advanceTimersByTime(2000));
 
     expect(screen.queryByText("Neural Link Active — EST. 330")).not.toBeInTheDocument();
-    expect(screen.getByText("Not")).toBeInTheDocument();
-    expect(screen.queryByText("#Not")).not.toBeInTheDocument();
-    expect(screen.getByText("Like")).toBeInTheDocument();
-    expect(screen.getByText("Others")).toBeInTheDocument();
+    expect(screen.getByText("#notlikeothers")).toBeInTheDocument();
   });
 
-  it("reveals Not Like Others on entry and scrambles it on hover", () => {
+  it("keeps #notlikeothers in the top-right and scrambles it on hover", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);
     render(<App />);
 
-    const tagline = screen.getByTestId("not-like-others");
-    act(() => vi.advanceTimersByTime(800));
-    expect(tagline).not.toHaveTextContent("NotLikeOthers");
-
-    act(() => vi.advanceTimersByTime(1800));
-    expect(tagline).toHaveTextContent("NotLikeOthers");
+    const tagline = screen.getByTestId("nav-tagline");
+    expect(tagline).toHaveTextContent("#notlikeothers");
 
     fireEvent.mouseEnter(tagline);
     act(() => vi.advanceTimersByTime(25));
-    expect(tagline).not.toHaveTextContent("NotLikeOthers");
+    expect(tagline).not.toHaveTextContent("#notlikeothers");
 
     fireEvent.mouseLeave(tagline);
-    expect(tagline).toHaveTextContent("NotLikeOthers");
+    expect(tagline).toHaveTextContent("#notlikeothers");
   });
 
   it("uses the new Ritim İle Akış hero copy", () => {
     vi.useFakeTimers();
-    render(<App />);
+    const { container } = render(<App />);
     act(() => vi.advanceTimersByTime(800));
     act(() => vi.advanceTimersByTime(3000));
 
-    expect(screen.getByRole("heading", { name: /Ritim\s+İle Akış/i })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Sıradan görünmeyi reddeden markalar için premium dijital deneyimler üretiyoruz. Yeni yüzümüzü inşa ederken ihtiyacın olan hizmet alanını seç, detayları paylaş hedefine en uygun ekiple seni doğrudan buluşturalım.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Ritim\s+ile Akış/i })).toBeInTheDocument();
+    expect(container.querySelector(".hero-description")).toHaveTextContent(
+      "Sıradan görünmeyi reddeden markalar için premium dijital deneyimler üretiyoruz. Yeni yüzümüzü inşa ederken ihtiyacın olan hizmet alanını seç, detayları paylaş hedefine en uygun ekiple seni doğrudan buluşturalım.",
+    );
     expect(screen.queryByText("Brain")).not.toBeInTheDocument();
   });
 
-  it("raises only the Ritim line to open the hero title spacing", () => {
+  it("keeps the Ritim ile Akış title on one line in its original left position", () => {
     vi.useFakeTimers();
     render(<App />);
     act(() => vi.advanceTimersByTime(800));
     act(() => vi.advanceTimersByTime(3000));
 
-    const heroTitle = screen.getByRole("heading", { name: /Ritim\s+İle Akış/i });
-    expect(heroTitle.querySelector(":scope > span")).toHaveClass("-translate-y-[0.16em]");
+    const heroTitle = screen.getByRole("heading", { name: /Ritim\s+ile Akış/i });
+    expect(heroTitle).toHaveClass("whitespace-nowrap");
+    expect(heroTitle).not.toHaveClass("text-center");
+    expect(heroTitle.querySelector("br")).not.toBeInTheDocument();
+    expect(screen.getByTestId("hero-copy")).not.toHaveClass("items-center");
   });
 
   it("uses the requested hero typography scale and description treatment", () => {
     vi.useFakeTimers();
-    render(<App />);
+    const { container } = render(<App />);
     act(() => vi.advanceTimersByTime(800));
     act(() => vi.advanceTimersByTime(3000));
 
-    const heroTitle = screen.getByRole("heading", { name: /Ritim\s+İle Akış/i });
-    expect(heroTitle).toHaveClass("text-[clamp(48px,10vw,104px)]");
-    expect(heroTitle.querySelector(":scope > span")).toHaveClass(
-      "text-[clamp(57px,11.9vw,132px)]",
-    );
-    const description = screen.getByText(/Sıradan görünmeyi reddeden markalar/i);
+    const heroTitle = screen.getByRole("heading", { name: /Ritim\s+ile Akış/i });
+    expect(heroTitle).toHaveClass("text-[clamp(48px,10vw,160px)]");
+    expect(heroTitle).toHaveStyle({
+      fontFamily: '"PP Neue Machina", sans-serif',
+      fontWeight: "800",
+      letterSpacing: "-0.02em",
+    });
+    expect((heroTitle as HTMLElement).style.lineHeight).toBe("");
+    const description = container.querySelector(".hero-description");
     expect(description).toHaveClass("text-[#fdfcfc]", "sm:text-[16px]");
+    expect(description).toHaveClass("lg:max-w-[60rem]");
     expect(description).toHaveStyle({ fontFamily: '"Inter Variable", Arial, sans-serif' });
   });
 
   it("updates the frequency readout when a station is selected", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Dijital/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Prodüksiyon/i }));
 
-    expect(screen.getByText("Bağlı — 94.5 · Dijital")).toBeInTheDocument();
+    expect(screen.getByText("Bağlı — 94.5 · Prodüksiyon")).toBeInTheDocument();
   });
 
-  it("raises the tuner closer to the coming-soon copy", () => {
+  it("positions the tuner below the coming-soon copy", () => {
     const { container } = render(<App />);
 
     expect(container.querySelector(".st-root > style")?.textContent).toContain(
-      ".st-tuner{margin-top:clamp(64px,9vh,96px)}",
+      ".st-tuner{margin-top:clamp(96px,13vh,140px)}",
     );
   });
 
-  it("lifts the tuner readout and waveform while ending the needle at the rail", () => {
+  it("applies the annotated desktop spacing to the signal heading and station band", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+
+    expect(styles).toContain(".st-h1{padding-top:8px}");
+    expect(styles).toContain(".st-band{position:relative;padding-top:58px}");
+    expect(styles).toContain(".st-kicker{transform:translate(-18px,-32px)");
+  });
+
+  it("moves only the waveform lower while extending the needle to the card", () => {
     const { container } = render(<App />);
     const styles = container.querySelector(".st-root > style")?.textContent;
 
     expect(styles).toContain(
-      ".st-tuner-head,.st-wave{transform:translateY(-34px)}",
+      ".st-tuner-head{transform:translateY(-60px)}",
     );
-    expect(styles).toContain(".st-needle{position:absolute;top:-98px;bottom:34px;");
+    expect(styles).toContain(".st-wave{transform:translateY(28px)}");
+    expect(styles).toContain("top:-124px;bottom:-100px;");
   });
 
-  it("uses the new signal-led introduction", () => {
-    render(<App />);
+  it("uses the signal-led introduction in Geist", () => {
+    const { container } = render(<App />);
+    const introduction = container.querySelector(".st-sub");
 
-    expect(
-      screen.getByText(
-        "Her marka bir sinyal taşır biz onu yayına çeviririz. Yeni yüzümüz son ayarlarında. Frekansını seç, talebini bırak, doğru masaya düşsün.",
-      ),
-    ).toBeInTheDocument();
+    expect(introduction).toHaveTextContent(
+      "Her marka bir sinyal taşır biz onu yayına çeviririz. Yeni yüzümüz son ayarlarında. Frekansını seç, talebini bırak, doğru masaya düşsün.",
+    );
+    expect(introduction).toHaveStyle({ fontFamily: 'Geist, sans-serif' });
   });
 
-  it("anchors the stations to the two rail ends and their equal inner points", () => {
+  it("breaks the signal introduction before doğru masaya düşsün", () => {
+    const { container } = render(<App />);
+    const introduction = container.querySelector(".st-sub");
+
+    expect(introduction?.querySelector("br")).toBeInTheDocument();
+    expect(introduction?.innerHTML).toContain("talebini bırak,<br> doğru masaya düşsün.");
+  });
+
+  it("uses Neue Machina for the headline and Geist Mono for signal controls", () => {
     const { container } = render(<App />);
     const styles = container.querySelector(".st-root > style")?.textContent;
+    const globalStyles = readFileSync("src/index.css", "utf8");
 
-    expect(styles).toContain(".st-station:nth-child(1){left:0}");
+    expect(container.querySelector(".st-h1 em")).not.toBeInTheDocument();
+    expect(globalStyles).toContain("font-family: 'PP Neue Machina'");
+    expect(globalStyles).toContain("PPNeueMachina-PlainUltrabold.otf");
+    const neueMachina = readFileSync("public/fonts/PPNeueMachina-PlainUltrabold.otf", "base64");
+    expect(neueMachina).toHaveLength(163336);
+    expect(neueMachina).toMatch(/^T1RUTwAMAIAAAwBAQ0ZGIADhWOcAABdsAACookdERUY\+pD\+v/);
+    expect(styles).toContain("--st-display:'PP Neue Machina',sans-serif");
+    expect(styles).toContain(".st-h1{font-family:var(--st-display);font-size:clamp(48px,8.5vw,118px);line-height:1.05;");
+    expect(styles).toContain("letter-spacing:-.02em");
+    expect(styles).toContain("--st-mono:'Geist Mono',monospace");
+    expect(styles).toContain("text-transform:uppercase");
+    expect(styles).toContain("letter-spacing:.12em");
+    expect(screen.getByRole("button", { name: /Sinyali gönder ->/i })).toBeEnabled();
+  });
+
+  it("connects the active station card to the tuner rail", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+    const needle = container.querySelector(".st-needle");
+
     expect(styles).toContain(
-      ".st-station:nth-child(2){left:33.333%;transform:translateX(-50%)}",
+      "--st-radius:6px",
     );
     expect(styles).toContain(
-      ".st-station:nth-child(3){left:66.667%;transform:translateX(-50%)}",
+      ".st-stations{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:100px}",
     );
-    expect(styles).toContain(".st-station:nth-child(4){right:0;text-align:right}");
+    expect(styles).toContain("top:-124px;bottom:-100px");
+    expect(styles).toContain("--st-rail-offset:80px");
+    expect(styles).toContain(".st-rail::before{content:'';position:absolute;inset:0 0 auto;height:1px;background:var(--st-line);transform:translateY(var(--st-rail-offset))}");
+    expect(styles).toContain(".st-ticks,.st-ticks-fine{position:absolute;inset:0;background-repeat:no-repeat;transform:translateY(var(--st-rail-offset))}");
+    expect(styles).toContain("border-radius:var(--st-radius)");
+    expect(styles).not.toContain(".st-tag{display:flex;align-items:center;padding:14px 18px;border-radius:");
+    expect(styles).toContain(".st-needle{bottom:34px}");
+    expect(styles).toContain(".st-stations{grid-template-columns:repeat(2,1fr);margin-top:36px}");
+    expect(styles).toContain(".st-station.is-active::before{opacity:1;transform:scale(1)}");
+    expect(styles).toContain("@media (max-width:760px){\n  .st-needle{bottom:34px}");
+    expect(needle).toHaveStyle({ left: "12.5%" });
   });
 
   it("renders an uncropped, non-autoplay hero video with the background wordmark", () => {
@@ -336,6 +549,7 @@ describe("SynapseX landing page", () => {
     expect(heroVideo).toHaveAttribute("preload", "auto");
     expect(heroVideo).toHaveClass("object-contain");
     expect(heroVideo).toHaveClass("hero-model-video");
+    expect(heroVideo).toHaveClass("lg:left-[72%]");
     expect(heroVideo).not.toHaveAttribute("autoplay");
     expect(heroVideo).not.toHaveAttribute("loop");
     expect(container.querySelector('[data-testid="hero-wordmark"]')).toBeInTheDocument();
@@ -376,6 +590,31 @@ describe("SynapseX landing page", () => {
     expect(veil).toHaveClass("z-[15]");
   });
 
+  it("uses the supplied globe image for every Clavis Futuri separator", () => {
+    const { container } = render(<App />);
+    const orbs = container.querySelectorAll('[data-testid="clavis-futuri-orb"]');
+
+    expect(orbs).toHaveLength(8);
+    for (const orb of orbs) {
+      expect(orb).toHaveAttribute("src", "/küre.png");
+      expect(orb).toHaveAttribute("alt", "");
+      expect(orb).toHaveClass("h-[.28em]", "w-[.28em]");
+    }
+    expect(container.querySelector('[data-testid="hero-wordmark"]')).not.toHaveTextContent("•");
+  });
+
+  it("keeps the Clavis Futuri globes brighter than the veiled wordmark", () => {
+    const { container } = render(<App />);
+    const wordmark = container.querySelector('[data-testid="hero-wordmark"]');
+    const globe = container.querySelector('[data-testid="clavis-futuri-orb"]');
+    const word = container.querySelector(".clavis-futuri-label");
+
+    expect(wordmark).not.toHaveClass("opacity-[.075]");
+    expect(wordmark).toHaveClass("z-[16]");
+    expect(word).toHaveClass("opacity-[.075]");
+    expect(globe).toHaveClass("opacity-[.68]", "brightness-125");
+  });
+
   it("keeps the animated galaxy behind all page content", () => {
     const { container } = render(<App />);
     const styles = readFileSync("src/index.css", "utf8");
@@ -395,6 +634,23 @@ describe("SynapseX landing page", () => {
     expect(styles).toContain("translate3d(");
     expect(wordmark).toHaveClass("z-10");
     expect(model?.parentElement).toHaveClass("z-20");
+  });
+
+  it("positions the scroll indicator slightly lower in the hero", () => {
+    render(<App />);
+
+    expect(screen.getByText("Scroll").parentElement).toHaveClass("bottom-5");
+  });
+
+  it("keeps the star field visibly layered over the page backdrop", () => {
+    const { container } = render(<App />);
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(container.querySelector('[data-testid="hero-galaxy"]')).toHaveClass(
+      "galaxy-field--visible",
+    );
+    expect(styles).toContain(".galaxy-field--visible::before");
+    expect(styles).toContain(".galaxy-field--visible::after");
   });
 
   it("adds red and violet rim lights behind the hero model", () => {
