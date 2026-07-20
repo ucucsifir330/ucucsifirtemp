@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import VortexShader from "./components/VortexShader";
 import CustomCursor from "./components/CustomCursor";
 import { HERO_FLOATING_VISUALS, MEDIA } from "./config/media";
@@ -12,6 +12,21 @@ const chars =
 const random = () => chars[Math.floor(Math.random() * chars.length)];
 const heroVideoFps = 30;
 const heroFrameDuration = 1 / heroVideoFps;
+const clavisBandDuration = 52;
+const heroDesktopPointerQuery =
+  "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
+const heroTouchSceneQuery =
+  "(max-width: 1023px), (hover: none), (pointer: coarse)";
+
+const requestMediaPlayback = (media: HTMLMediaElement) => {
+  try {
+    const playback = media.play();
+    if (playback) void playback.catch(() => {});
+  } catch {
+    // Playback is retried after the next user gesture.
+  }
+};
+
 type HeroPointer = {
   x: number;
   y: number;
@@ -52,8 +67,90 @@ export const heroScrollVideoTime = (
   return Math.min(maxTime, targetFrame * heroFrameDuration);
 };
 
+export const heroScrollScrubDistance = (
+  trackHeight: number,
+  viewportHeight: number,
+  reservesPanelReveal: boolean,
+) =>
+  Math.max(
+    0,
+    trackHeight - viewportHeight * (reservesPanelReveal ? 2 : 1),
+  );
+
+export const stackPanelStickyTop = (
+  panelHeight: number,
+  viewportHeight: number,
+) => Math.min(0, viewportHeight - panelHeight);
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const smoothstep = (value: number) => value * value * (3 - 2 * value);
+
+export const mobileHeroSceneProgress = (
+  scrolled: number,
+  viewportHeight: number,
+) => {
+  const progress =
+    viewportHeight > 0 && Number.isFinite(scrolled)
+      ? clamp01(scrolled / viewportHeight)
+      : 0;
+
+  return {
+    navExit: smoothstep(clamp01(progress / 0.55)),
+    copyReveal: smoothstep(clamp01((progress - 0.42) / 0.48)),
+    indicatorExit: smoothstep(clamp01(progress / 0.22)),
+  };
+};
+
+export const desktopHeroChromeProgress = (
+  scrolled: number,
+  viewportHeight: number,
+) => {
+  const progress =
+    viewportHeight > 0 && Number.isFinite(scrolled)
+      ? clamp01(scrolled / viewportHeight)
+      : 0;
+
+  return smoothstep(clamp01((progress - 0.18) / 0.5));
+};
+
+export const desktopWordmarkExitProgress = (
+  panelTop: number,
+  viewportHeight: number,
+) => {
+  if (
+    viewportHeight <= 0 ||
+    !Number.isFinite(viewportHeight) ||
+    !Number.isFinite(panelTop)
+  ) {
+    return 0;
+  }
+
+  const start = viewportHeight * 0.72;
+  const end = viewportHeight * 0.2;
+  return smoothstep(clamp01((start - panelTop) / (start - end)));
+};
+
 export const shouldSeekHeroVideo = (currentTime: number, targetTime: number) =>
   Math.abs(targetTime - currentTime) >= heroFrameDuration - Number.EPSILON;
+
+export const clavisOrbRotationDuration = (
+  bandDistance: number,
+  orbDiameter: number,
+  bandDuration = clavisBandDuration,
+) => {
+  if (
+    !Number.isFinite(bandDistance) ||
+    !Number.isFinite(orbDiameter) ||
+    !Number.isFinite(bandDuration) ||
+    bandDistance <= 0 ||
+    orbDiameter <= 0 ||
+    bandDuration <= 0
+  ) {
+    return bandDuration;
+  }
+
+  return (Math.PI * orbDiameter * bandDuration) / bandDistance;
+};
 
 function ScrambleIn({
   text,
@@ -168,6 +265,94 @@ function MailIcon() {
   );
 }
 
+function SoundOnIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="hero-sound-control__waves"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <path d="M18 16.7503C17.84 16.7503 17.69 16.7003 17.55 16.6003C17.22 16.3503 17.15 15.8803 17.4 15.5503C18.97 13.4603 18.97 10.5403 17.4 8.45027C17.15 8.12027 17.22 7.65027 17.55 7.40027C17.88 7.15027 18.35 7.22027 18.6 7.55027C20.56 10.1703 20.56 13.8303 18.6 16.4503C18.45 16.6503 18.23 16.7503 18 16.7503Z" />
+      <path d="M19.8301 19.2503C19.6701 19.2503 19.5201 19.2003 19.3801 19.1003C19.0501 18.8503 18.9801 18.3803 19.2301 18.0503C21.9001 14.4903 21.9001 9.51027 19.2301 5.95027C18.9801 5.62027 19.0501 5.15027 19.3801 4.90027C19.7101 4.65027 20.1801 4.72027 20.4301 5.05027C23.5001 9.14027 23.5001 14.8603 20.4301 18.9503C20.2901 19.1503 20.0601 19.2503 19.8301 19.2503Z" />
+      <path d="M14.02 3.77972C12.9 3.15972 11.47 3.31972 10.01 4.22972L7.09 6.05972C6.89 6.17972 6.66 6.24972 6.43 6.24972H5.5H5C2.58 6.24972 1.25 7.57972 1.25 9.99972V13.9997C1.25 16.4197 2.58 17.7497 5 17.7497H5.5H6.43C6.66 17.7497 6.89 17.8197 7.09 17.9397L10.01 19.7697C10.89 20.3197 11.75 20.5897 12.55 20.5897C13.07 20.5897 13.57 20.4697 14.02 20.2197C15.13 19.5997 15.75 18.3097 15.75 16.5897V7.40972C15.75 5.68972 15.13 4.39972 14.02 3.77972Z" />
+    </svg>
+  );
+}
+
+function SoundOffIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="hero-sound-control__mute"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <path d="M22.5299 13.4197L21.0799 11.9697L22.4799 10.5697C22.7699 10.2797 22.7699 9.79969 22.4799 9.50969C22.1899 9.21969 21.7099 9.21969 21.4199 9.50969L20.0199 10.9097L18.5699 9.45969C18.2799 9.16969 17.7999 9.16969 17.5099 9.45969C17.2199 9.74969 17.2199 10.2297 17.5099 10.5197L18.9599 11.9697L17.4699 13.4597C17.1799 13.7497 17.1799 14.2297 17.4699 14.5197C17.6199 14.6697 17.8099 14.7397 17.9999 14.7397C18.1899 14.7397 18.3799 14.6697 18.5299 14.5197L20.0199 13.0297L21.4699 14.4797C21.6199 14.6297 21.8099 14.6997 21.9999 14.6997C22.1899 14.6997 22.3799 14.6297 22.5299 14.4797C22.8199 14.1897 22.8199 13.7197 22.5299 13.4197Z" />
+      <path d="M14.02 3.77972C12.9 3.15972 11.47 3.31972 10.01 4.22972L7.09 6.05972C6.89 6.17972 6.66 6.24972 6.43 6.24972H5.5H5C2.58 6.24972 1.25 7.57972 1.25 9.99972V13.9997C1.25 16.4197 2.58 17.7497 5 17.7497H5.5H6.43C6.66 17.7497 6.89 17.8197 7.09 17.9397L10.01 19.7697C10.89 20.3197 11.75 20.5897 12.55 20.5897C13.07 20.5897 13.57 20.4697 14.02 20.2197C15.13 19.5997 15.75 18.3097 15.75 16.5897V7.40972C15.75 5.68972 15.13 4.39972 14.02 3.77972Z" />
+    </svg>
+  );
+}
+
+const audioEntryWords = [
+  { label: "SESİ AÇMAK İÇİN", layout: "intro" },
+  { label: "HERHANGİ BİR YERE", layout: "prompt" },
+  { label: "TIKLA", layout: "action" },
+] as const;
+
+function AudioEntryGate({
+  ready,
+  onEnterWithSound,
+  onEnterSilently,
+}: {
+  ready: boolean;
+  onEnterWithSound: () => void;
+  onEnterSilently: () => void;
+}) {
+  return (
+    <motion.section
+      role="dialog"
+      aria-label="Ses tercihi"
+      aria-modal={ready}
+      aria-hidden={!ready}
+      data-ready={ready}
+      className="audio-entry-gate"
+      initial={false}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.72, ease: [0.76, 0, 0.24, 1] }}
+    >
+      <button
+        type="button"
+        aria-label="Sesi açarak siteye gir"
+        className="audio-entry-gate__sound"
+        disabled={!ready}
+        onClick={onEnterWithSound}
+      >
+        <span className="audio-entry-gate__message" aria-hidden="true">
+          {audioEntryWords.map(({ label, layout }) => (
+            <span
+              key={layout}
+              data-layout={layout}
+              className="audio-entry-gate__word"
+            >
+              {label}
+            </span>
+          ))}
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-label="Sessiz devam et"
+        className="audio-entry-gate__silent"
+        disabled={!ready}
+        onClick={onEnterSilently}
+      >
+        SESSİZ DEVAM ET
+      </button>
+    </motion.section>
+  );
+}
+
 function Nav({ visible }: { visible: boolean }) {
   const [wordmarkHovered, setWordmarkHovered] = useState(false);
   const [taglineHovered, setTaglineHovered] = useState(false);
@@ -185,7 +370,7 @@ function Nav({ visible }: { visible: boolean }) {
         onMouseLeave={() => setWordmarkHovered(false)}
         className="col-span-6 flex items-center"
       >
-          <span className="font-galgo nav-brand relative inline-block text-[42px] leading-none sm:text-[84px]">
+          <span className="font-galgo nav-brand nav-brand--persistent relative inline-block text-[42px] leading-none sm:text-[84px]">
             <span data-testid="nav-wordmark-text">
               <ScrambleText text="Üç Üç Sıfır" isHovered={wordmarkHovered} />
             </span>
@@ -202,7 +387,7 @@ function Nav({ visible }: { visible: boolean }) {
         aria-label="#notlikeothers"
         onMouseEnter={() => setTaglineHovered(true)}
         onMouseLeave={() => setTaglineHovered(false)}
-        className="font-galgo nav-brand col-span-6 justify-self-end cursor-default text-[42px] leading-none sm:text-[84px]"
+        className="font-galgo nav-brand nav-brand--secondary col-span-6 justify-self-end cursor-default text-[42px] leading-none sm:text-[84px]"
       >
         <ScrambleText text="#notlikeothers" isHovered={taglineHovered} />
       </div>
@@ -457,9 +642,19 @@ function ReactiveLogo() {
   );
 }
 
-function ClavisFuturiSequence({ hidden = false }: { hidden?: boolean }) {
+function ClavisFuturiSequence({
+  hidden = false,
+  sequenceRef,
+}: {
+  hidden?: boolean;
+  sequenceRef?: React.Ref<HTMLSpanElement>;
+}) {
   return (
-    <span aria-hidden={hidden || undefined} className="flex shrink-0 items-center">
+    <span
+      ref={sequenceRef}
+      aria-hidden={hidden || undefined}
+      className="flex shrink-0 items-center"
+    >
       {Array.from({ length: 4 }, (_, index) => (
         <span key={index} className="inline-flex shrink-0 items-center">
           <span className="clavis-futuri-label opacity-[.075]">CLAVIS FUTURI</span>
@@ -467,7 +662,7 @@ function ClavisFuturiSequence({ hidden = false }: { hidden?: boolean }) {
             data-testid="clavis-futuri-orb"
             src={MEDIA.decorations.marbledOrb}
             alt=""
-            className="clavis-futuri-orb mx-[.13em] inline-block h-[.28em] w-[.28em] shrink-0 object-contain opacity-[.68] brightness-125 drop-shadow-[0_0_16px_rgb(178_139_255_/_0.48)]"
+            className="clavis-futuri-orb clavis-futuri-orb--rolling-left mx-[.13em] inline-block h-[.28em] w-[.28em] shrink-0 object-contain opacity-[.68] brightness-125 drop-shadow-[0_0_16px_rgb(178_139_255_/_0.48)]"
           />
         </span>
       ))}
@@ -477,6 +672,8 @@ function ClavisFuturiSequence({ hidden = false }: { hidden?: boolean }) {
 
 function App() {
   const [entered, setEntered] = useState(false),
+    [soundEnabled, setSoundEnabled] = useState(false),
+    [audioGateOpen, setAudioGateOpen] = useState(true),
     [loadingPhase, setLoadingPhase] = useState<
       "loading" | "ring-out" | "logo-grow" | "lift" | "complete"
     >("loading"),
@@ -488,13 +685,49 @@ function App() {
       active: false,
     }),
     [clock, setClock] = useState(() => formatClock(new Date())),
+    siteShell = useRef<HTMLElement>(null),
+    soundtrack = useRef<HTMLAudioElement>(null),
+    soundEnabledRef = useRef(false),
     video = useRef<HTMLVideoElement>(null),
     heroTrack = useRef<HTMLDivElement>(null),
+    logoPanel = useRef<HTMLElement>(null),
+    clavisMarquee = useRef<HTMLDivElement>(null),
+    clavisSequence = useRef<HTMLSpanElement>(null),
     heroTargetTime = useRef(0),
     heroRaf = useRef<number | null>(null),
     heroMetadataReady = useRef(false),
     heroSeeking = useRef(false),
     lastHeroPointerX = useRef<number | null>(null);
+  const audioGateReady = loadingPhase === "lift" || loadingPhase === "complete";
+  const toggleSound = () => {
+    const currentSoundtrack = soundtrack.current;
+    if (!currentSoundtrack) return;
+
+    if (soundEnabled) {
+      soundEnabledRef.current = false;
+      currentSoundtrack.pause();
+      setSoundEnabled(false);
+      return;
+    }
+
+    soundEnabledRef.current = true;
+    setSoundEnabled(true);
+    requestMediaPlayback(currentSoundtrack);
+  };
+  const enterWithSound = () => {
+    soundEnabledRef.current = true;
+    setSoundEnabled(true);
+    if (soundtrack.current) requestMediaPlayback(soundtrack.current);
+    setEntered(true);
+    setAudioGateOpen(false);
+  };
+  const enterSilently = () => {
+    soundEnabledRef.current = false;
+    soundtrack.current?.pause();
+    setSoundEnabled(false);
+    setEntered(true);
+    setAudioGateOpen(false);
+  };
   const scheduleHeroSeek = () => {
     if (
       heroRaf.current !== null ||
@@ -517,12 +750,160 @@ function App() {
     window.scrollTo(0, 0);
   }, []);
   useEffect(() => {
+    const panels = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".site-panel-track > .site-stack-panel",
+      ),
+    );
+    const syncStickyOffsets = () => {
+      for (const panel of panels) {
+        const stickyTop = stackPanelStickyTop(
+          panel.getBoundingClientRect().height,
+          window.innerHeight,
+        );
+        panel.style.setProperty("--site-stack-sticky-top", `${stickyTop}px`);
+      }
+    };
+    syncStickyOffsets();
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(syncStickyOffsets);
+    for (const panel of panels) resizeObserver?.observe(panel);
+    window.addEventListener("resize", syncStickyOffsets);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", syncStickyOffsets);
+    };
+  }, []);
+  useEffect(() => {
+    const marquee = clavisMarquee.current;
+    const sequence = clavisSequence.current;
+    if (!marquee || !sequence) return;
+
+    const updateOrbRotationSpeed = () => {
+      const orb = sequence.querySelector<HTMLElement>(
+        '[data-testid="clavis-futuri-orb"]',
+      );
+      if (!orb) return;
+
+      const duration = clavisOrbRotationDuration(
+        sequence.getBoundingClientRect().width,
+        orb.offsetWidth,
+      );
+      marquee.style.setProperty(
+        "--clavis-orb-rotation-duration",
+        `${duration}s`,
+      );
+    };
+
+    updateOrbRotationSpeed();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateOrbRotationSpeed);
+      return () => window.removeEventListener("resize", updateOrbRotationSpeed);
+    }
+
+    const resizeObserver = new ResizeObserver(updateOrbRotationSpeed);
+    resizeObserver.observe(sequence);
+    return () => resizeObserver.disconnect();
+  }, []);
+  useEffect(() => {
     const scrubHeroFromScroll = () => {
       const track = heroTrack.current;
-      const currentVideo = video.current;
-      if (!track || !currentVideo || !heroMetadataReady.current) return;
+      if (!track) return;
+
       const bounds = track.getBoundingClientRect();
-      const scrollable = bounds.height - window.innerHeight;
+      const isMobile = window.matchMedia
+        ? window.matchMedia("(max-width: 767px)").matches
+        : window.innerWidth <= 767;
+      const usesTouchScene =
+        isMobile ||
+        (window.matchMedia
+          ? window.matchMedia(heroTouchSceneQuery).matches
+          : window.innerWidth <= 1023);
+      const isDesktopPointer =
+        window.matchMedia?.(heroDesktopPointerQuery).matches ?? false;
+      const scene = usesTouchScene
+        ? mobileHeroSceneProgress(-bounds.top, window.innerHeight)
+        : { navExit: 0, copyReveal: 0, indicatorExit: 0 };
+      const desktopChromeExit = isDesktopPointer
+        ? desktopHeroChromeProgress(-bounds.top, window.innerHeight)
+        : 0;
+      const desktopWordmarkExit = isDesktopPointer
+        ? desktopWordmarkExitProgress(
+            logoPanel.current?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY,
+            window.innerHeight,
+          )
+        : 0;
+      const shell = siteShell.current;
+      if (shell) {
+        const desktopChromeTravel = Math.min(
+          320,
+          Math.max(180, window.innerHeight * 0.32),
+        );
+        shell.style.setProperty(
+          "--desktop-chrome-exit",
+          `${desktopChromeExit}`,
+        );
+        shell.style.setProperty(
+          "--desktop-chrome-shift",
+          `${-desktopChromeTravel * desktopChromeExit}px`,
+        );
+        shell.style.setProperty(
+          "--desktop-chrome-opacity",
+          `${1 - desktopChromeExit}`,
+        );
+        shell.style.setProperty(
+          "--desktop-wordmark-exit",
+          `${desktopWordmarkExit}`,
+        );
+        shell.style.setProperty(
+          "--desktop-wordmark-shift",
+          `${-desktopChromeTravel * desktopWordmarkExit}px`,
+        );
+        shell.style.setProperty(
+          "--desktop-wordmark-opacity",
+          `${1 - desktopWordmarkExit}`,
+        );
+        shell.style.setProperty("--mobile-nav-exit", `${scene.navExit}`);
+        shell.style.setProperty(
+          "--mobile-nav-shift",
+          `${-140 * scene.navExit}px`,
+        );
+        shell.style.setProperty(
+          "--mobile-nav-opacity",
+          `${1 - scene.navExit}`,
+        );
+        shell.style.setProperty(
+          "--mobile-copy-reveal",
+          `${scene.copyReveal}`,
+        );
+        shell.style.setProperty(
+          "--mobile-copy-shift",
+          `${28 * (1 - scene.copyReveal)}px`,
+        );
+        shell.style.setProperty(
+          "--mobile-indicator-exit",
+          `${scene.indicatorExit}`,
+        );
+        shell.style.setProperty(
+          "--mobile-indicator-opacity",
+          `${1 - scene.indicatorExit}`,
+        );
+      }
+
+      const currentVideo = video.current;
+      if (!currentVideo || !heroMetadataReady.current) return;
+      // Fine-pointer desktop keeps the character timeline under horizontal
+      // mouse control; page scroll is reserved for the panel reveal.
+      if (window.matchMedia?.(heroDesktopPointerQuery).matches) return;
+      const reservesPanelReveal =
+        window.matchMedia?.("(max-width: 767px)").matches ?? false;
+      const scrollable = heroScrollScrubDistance(
+        bounds.height,
+        window.innerHeight,
+        reservesPanelReveal,
+      );
       // Desktop: the track collapses to the hero height, so there is
       // nothing to scrub and the pointer keeps driving the video.
       if (scrollable <= 0) return;
@@ -533,12 +914,13 @@ function App() {
       );
       scheduleHeroSeek();
     };
+    scrubHeroFromScroll();
     window.addEventListener("scroll", scrubHeroFromScroll, { passive: true });
-    return () => window.removeEventListener("scroll", scrubHeroFromScroll);
-  }, []);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setEntered(true), 800);
-    return () => clearTimeout(timer);
+    window.addEventListener("resize", scrubHeroFromScroll);
+    return () => {
+      window.removeEventListener("scroll", scrubHeroFromScroll);
+      window.removeEventListener("resize", scrubHeroFromScroll);
+    };
   }, []);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(formatClock(new Date())), 1000);
@@ -564,7 +946,12 @@ function App() {
       const currentVideo = video.current;
       if (!currentVideo || !Number.isFinite(currentVideo.duration)) return;
       heroMetadataReady.current = true;
-      currentVideo.currentTime = 0;
+      // Seeking away from the default 0 forces mobile Safari to decode and
+      // paint a frame even though the scroll-scrubbed video never autoplays.
+      currentVideo.currentTime = Math.min(
+        heroFrameDuration,
+        Math.max(0, currentVideo.duration - heroFrameDuration),
+      );
     };
     const continueHeroSeek = () => {
       heroSeeking.current = false;
@@ -598,6 +985,10 @@ function App() {
       clientY: event.clientY,
       active: true,
     });
+    if (!window.matchMedia?.(heroDesktopPointerQuery).matches) {
+      lastHeroPointerX.current = null;
+      return;
+    }
     if (lastHeroPointerX.current === null) {
       lastHeroPointerX.current = pointerX;
       return;
@@ -612,7 +1003,45 @@ function App() {
     scheduleHeroSeek();
   };
   return (
-    <main className="relative isolate" style={{ fontFamily: '"Space Mono", monospace' }}>
+    <main
+      ref={siteShell}
+      data-testid="site-shell"
+      className="site-shell relative isolate"
+      style={{
+        fontFamily: '"Space Mono", monospace',
+        "--mobile-nav-exit": "0",
+        "--mobile-nav-shift": "0px",
+        "--mobile-nav-opacity": "1",
+        "--mobile-copy-reveal": "0",
+        "--mobile-copy-shift": "28px",
+        "--mobile-indicator-exit": "0",
+        "--mobile-indicator-opacity": "1",
+        "--desktop-chrome-exit": "0",
+        "--desktop-chrome-shift": "0px",
+        "--desktop-chrome-opacity": "1",
+        "--desktop-wordmark-exit": "0",
+        "--desktop-wordmark-shift": "0px",
+        "--desktop-wordmark-opacity": "1",
+      } as React.CSSProperties}
+    >
+      <audio
+        ref={soundtrack}
+        data-testid="site-soundtrack"
+        loop
+        preload="auto"
+      >
+        <source src={MEDIA.audio.soundtrackMp3} type="audio/mpeg" />
+        <source src={MEDIA.audio.soundtrackM4a} type="audio/mp4" />
+      </audio>
+      <AnimatePresence>
+        {audioGateOpen && (
+          <AudioEntryGate
+            ready={audioGateReady}
+            onEnterWithSound={enterWithSound}
+            onEnterSilently={enterSilently}
+          />
+        )}
+      </AnimatePresence>
       <CustomCursor />
       {loadingPhase !== "complete" && <LoadingScreen phase={loadingPhase} />}
       <div
@@ -692,11 +1121,24 @@ function App() {
         />
         <HeroVisuals pointer={heroPointer} />
         <SectionTransition edge="bottom" />
+        <button
+          type="button"
+          aria-label={soundEnabled ? "Sesi kapat" : "Sesi aç"}
+          aria-pressed={soundEnabled}
+          className="hero-sound-control"
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleSound();
+          }}
+        >
+          {soundEnabled ? <SoundOnIcon /> : <SoundOffIcon />}
+        </button>
         <div data-testid="hero-wordmark" className="hero-wordmark pointer-events-none absolute inset-x-0 top-1/2 z-[16] -translate-y-1/2 overflow-hidden">
           <motion.div
+            ref={clavisMarquee}
             animate={{ x: ["0%", "-50%"] }}
             transition={{
-              duration: 52,
+              duration: clavisBandDuration,
               ease: "linear",
               repeat: Infinity,
               repeatType: "loop",
@@ -707,45 +1149,56 @@ function App() {
               color: "#8E7F94",
             }}
           >
-            <ClavisFuturiSequence />
+            <ClavisFuturiSequence sequenceRef={clavisSequence} />
             <ClavisFuturiSequence hidden />
           </motion.div>
         </div>
         <motion.div
+          data-testid="hero-copy-entrance"
+          data-intro={entered ? "visible" : "hidden"}
           initial={{ opacity: 0 }}
           animate={{ opacity: entered ? 1 : 0 }}
           transition={{ duration: 1 }}
-          data-testid="hero-copy"
-          className="hero-copy relative z-30 flex flex-1 flex-col justify-end"
+          className="hero-copy-entrance relative z-30 flex flex-1"
         >
-          <div className="hero-copy-layout flex flex-col gap-10 md:flex-row md:items-end md:justify-between md:gap-8">
-            <div className="flex flex-col gap-5 sm:gap-6">
-              <h1
-                className="hero-primary-heading whitespace-nowrap text-[clamp(48px,10vw,160px)] font-light leading-[.92] tracking-[-.03em]"
-                style={{
-                  fontFamily: '"PP Neue Machina", sans-serif',
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                <ScrambleIn text="Ritim ile Akış" delay={200} triggered={entered} />
-              </h1>
-              <motion.p
-                initial={{ opacity: 0, y: 25 }}
-                animate={{ opacity: entered ? 1 : 0, y: entered ? 0 : 25 }}
-                transition={{
-                  duration: 0.9,
-                  ease: [0.215, 0.61, 0.355, 1],
-                  delay: 0.2,
-                }}
-              className="hero-description max-w-md border-l border-[#A48FFF]/30 pl-5 text-[13px] leading-[1.75] text-[#fdfcfc] sm:text-[16px] lg:max-w-[60rem]"
-                style={{ fontFamily: '"Inter Variable", Arial, sans-serif' }}
-              >
-                Sıradan görünmeyi reddeden markalar için premium dijital
-                deneyimler üretiyoruz. Yeni yüzümüzü inşa ederken ihtiyacın
-                olan hizmet alanını seç, detayları paylaş hedefine en uygun
-                ekiple seni doğrudan buluşturalım.
-              </motion.p>
+          <div
+            data-testid="hero-copy"
+            className="hero-copy flex flex-1 flex-col justify-end"
+          >
+            <div className="hero-copy-layout flex flex-col gap-10 md:flex-row md:items-end md:justify-between md:gap-8">
+              <div className="flex flex-col gap-5 sm:gap-6">
+                <div className="hero-title-entrance">
+                  <h1
+                    aria-label="Ritim ile Akış"
+                    className="hero-primary-heading whitespace-nowrap text-[clamp(48px,10vw,160px)] font-light leading-[.92] tracking-[-.03em]"
+                    style={{
+                      fontFamily: '"PP Neue Machina", sans-serif',
+                      fontWeight: 800,
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    <ScrambleIn text="Ritim ile Akış" delay={200} triggered={entered} />
+                  </h1>
+                </div>
+                <div className="hero-description-entrance">
+                  <motion.p
+                    initial={{ opacity: 0, y: 25 }}
+                    animate={{ opacity: entered ? 1 : 0, y: entered ? 0 : 25 }}
+                    transition={{
+                      duration: 0.9,
+                      ease: [0.215, 0.61, 0.355, 1],
+                      delay: 0.2,
+                    }}
+                    className="hero-description max-w-md border-l border-[#A48FFF]/30 pl-5 text-[13px] leading-[1.75] text-[#fdfcfc] sm:text-[16px] lg:max-w-[60rem]"
+                    style={{ fontFamily: '"Inter Variable", Arial, sans-serif' }}
+                  >
+                    Sıradan görünmeyi reddeden markalar için premium dijital
+                    deneyimler üretiyoruz. Yeni yüzümüzü inşa ederken ihtiyacın
+                    olan hizmet alanını seç, detayları paylaş hedefine en uygun
+                    ekiple seni doğrudan buluşturalım.
+                  </motion.p>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -754,21 +1207,32 @@ function App() {
           animate={{ opacity: entered ? 1 : 0 }}
           transition={{ duration: 1.2, delay: 1.4 }}
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-5 left-1/2 z-30 hidden -translate-x-1/2 flex-col items-center gap-3 xl:flex"
+          className="pointer-events-none absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2"
         >
-          <span className="text-[9px] uppercase tracking-[.34em] text-white/35">
-            Scroll
-          </span>
-          <span className="scroll-line" />
+          <div
+            data-testid="hero-scroll-indicator"
+            className="hero-scroll-indicator bottom-5 flex flex-col items-center gap-3"
+          >
+            <span className="scroll-cue-label uppercase">
+              Scroll
+            </span>
+            <span className="scroll-line" />
+          </div>
         </motion.div>
        </section>
        </div>
        </HeroSection>
-       <CinematicSection />
+       <div
+        data-testid="cinematic-scroll-track"
+        className="site-panel-track"
+       >
+        <CinematicSection />
+       </div>
        <LogoSection>
        <section
+        ref={logoPanel}
         data-testid="logo-section"
-        className="relative flex min-h-screen items-start overflow-hidden px-5 pb-32 pt-8 sm:px-8 sm:pb-40 sm:pt-10"
+        className="site-stack-panel logo-panel relative flex min-h-screen items-start overflow-hidden px-5 pb-32 pt-8 sm:px-8 sm:pb-40 sm:pt-10"
       >
         <VortexShader
           src={MEDIA.backgrounds.vortexTexture}

@@ -1,23 +1,217 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App, {
+  clavisOrbRotationDuration,
+  desktopHeroChromeProgress,
+  desktopWordmarkExitProgress,
+  mobileHeroSceneProgress,
   heroVideoTime,
   heroScrollVideoTime,
+  heroScrollScrubDistance,
   formatClock,
+  stackPanelStickyTop,
   shouldSeekHeroVideo,
 } from "./App";
 import CustomCursor from "./components/CustomCursor";
+import * as SignalTunerModule from "./components/SignalTuner";
+
+type WaveProfile = "idle" | "software" | "production" | "growth" | "other";
+
+const getSignalWaveY = () => {
+  const waveY = (
+    SignalTunerModule as unknown as {
+      signalWaveY?: (profile: WaveProfile, x: number, time: number) => number;
+    }
+  ).signalWaveY;
+
+  expect(waveY).toBeTypeOf("function");
+  return waveY!;
+};
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+});
+
+it("loads the supplied soundtrack formats without attempting audible autoplay", () => {
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play");
+  render(<App />);
+
+  const soundtrack = screen.getByTestId("site-soundtrack");
+  const sources = soundtrack.querySelectorAll("source");
+
+  expect(soundtrack).toHaveAttribute("loop");
+  expect(soundtrack).not.toHaveAttribute("autoplay");
+  expect(soundtrack).toHaveAttribute("preload", "auto");
+  expect(play).not.toHaveBeenCalled();
+  expect(sources[0]).toHaveAttribute(
+    "src",
+    "/media/audio/pure-system-silence.mp3",
+  );
+  expect(sources[0]).toHaveAttribute("type", "audio/mpeg");
+  expect(sources[1]).toHaveAttribute(
+    "src",
+    "/media/audio/pure-system-silence.m4a",
+  );
+  expect(sources[1]).toHaveAttribute("type", "audio/mp4");
+});
+
+it("enters with sound when the visitor clicks the full-screen gate", async () => {
+  vi.useFakeTimers();
+  const play = vi
+    .spyOn(HTMLMediaElement.prototype, "play")
+    .mockResolvedValue(undefined);
+  const { container } = render(<App />);
+
+  expect(screen.getByTestId("loading-screen")).toBeInTheDocument();
+  const concealedGate = container.querySelector(".audio-entry-gate");
+  expect(concealedGate).toHaveAttribute("data-ready", "false");
+  expect(concealedGate).toHaveAttribute("aria-hidden", "true");
+  expect(
+    screen.queryByRole("dialog", { name: "Ses tercihi" }),
+  ).not.toBeInTheDocument();
+
+  act(() => vi.advanceTimersByTime(3000));
+
+  expect(screen.getByTestId("loading-screen")).toHaveClass("loading-screen--lift");
+  expect(concealedGate).toHaveAttribute("data-ready", "true");
+  expect(screen.getByRole("dialog", { name: "Ses tercihi" })).toBeInTheDocument();
+
+  act(() => vi.advanceTimersByTime(800));
+  vi.useRealTimers();
+
+  const gate = screen.getByRole("dialog", { name: "Ses tercihi" });
+  const words = gate.querySelectorAll(".audio-entry-gate__word");
+  expect(Array.from(words, (word) => word.textContent)).toEqual([
+    "SESİ AÇMAK İÇİN",
+    "HERHANGİ BİR YERE",
+    "TIKLA",
+  ]);
+  expect(Array.from(words, (word) => word.getAttribute("data-layout"))).toEqual([
+    "intro",
+    "prompt",
+    "action",
+  ]);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Sesi açarak siteye gir" }),
+  );
+
+  await waitFor(() => {
+    expect(screen.queryByRole("dialog", { name: "Ses tercihi" })).not.toBeInTheDocument();
+  });
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("button", { name: "Sesi kapat" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+it("lets the visitor enter silently without starting the soundtrack", async () => {
+  vi.useFakeTimers();
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play");
+  render(<App />);
+
+  act(() => vi.advanceTimersByTime(3800));
+  vi.useRealTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Sessiz devam et" }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole("dialog", { name: "Ses tercihi" })).not.toBeInTheDocument();
+  });
+  expect(play).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Sesi aç" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+it("keeps native root scrolling available for the iOS Safari toolbar", () => {
+  render(<App />);
+
+  expect(document.documentElement).not.toHaveClass("audio-entry-active");
+
+  const styles = readFileSync("src/index.css", "utf8");
+  expect(styles).not.toMatch(
+    /html\.audio-entry-active[\s\S]*?overflow:\s*hidden;/,
+  );
+  expect(styles).toMatch(
+    /\.audio-entry-gate\s*\{[^}]*touch-action:\s*none;/s,
+  );
+  expect(styles).toMatch(
+    /\.loading-screen\s*\{[^}]*touch-action:\s*none;/s,
+  );
+});
+
+it("uses a centered, higher-contrast Geist entry composition responsively", () => {
+  const styles = readFileSync("src/index.css", "utf8");
+
+  expect(styles).toMatch(
+    /@font-face\s*\{[^}]*font-family:\s*'PP Neue Machina';[^}]*PPNeueMachina-PlainThin\.otf[^}]*font-weight:\s*100;/s,
+  );
+  expect(styles).toMatch(
+    /\.audio-entry-gate\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*z-index:\s*190;[^}]*background:\s*#090414;/s,
+  );
+  expect(styles).toMatch(
+    /\.audio-entry-gate__message\s*\{[^}]*top:\s*50%;[^}]*left:\s*50%;[^}]*display:\s*grid;[^}]*width:\s*min\(82vw, 760px\);[^}]*justify-items:\s*center;[^}]*transform:\s*translate\(-50%, -50%\);/s,
+  );
+  expect(styles).toMatch(
+    /\.audio-entry-gate__word\s*\{[^}]*color:\s*rgb\(226 222 230 \/ \.94\);[^}]*font-family:\s*"Geist"[^}]*font-weight:\s*300;[^}]*text-align:\s*center;/s,
+  );
+  expect(styles).toMatch(
+    /\.audio-entry-gate__word\[data-layout="action"\]\s*\{[^}]*font-size:\s*clamp\(46px, 6\.4vw, 110px\);/s,
+  );
+  expect(styles).toMatch(
+    /\.audio-entry-gate__silent\s*\{[^}]*bottom:\s*7dvh;[^}]*color:\s*rgb\(207 201 216 \/ \.9\);[^}]*font-family:\s*"Geist"[^}]*font-weight:\s*400;/s,
+  );
+  expect(styles).toMatch(
+    /@media \(max-width: 767px\) \{[\s\S]*?\.audio-entry-gate__message\s*\{[^}]*width:\s*min\(88vw, 520px\);/,
+  );
+  expect(styles).toMatch(
+    /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.audio-entry-gate__word,[\s\S]*?animation:\s*none;/,
+  );
+});
+
+it("places the mobile sound control beneath mail and moves it with navigation", () => {
+  const styles = readFileSync("src/index.css", "utf8");
+
+  expect(styles).toMatch(
+    /\.hero-sound-control\s*\{[^}]*display:\s*grid;/s,
+  );
+  expect(styles).not.toMatch(
+    /\.hero-sound-control\s*\{[^}]*display:\s*none;/s,
+  );
+  expect(styles).toMatch(
+    /@media \(max-width: 767px\) \{[\s\S]*?\.hero-sound-control \{[^}]*position:\s*fixed;[^}]*top:\s*224px;[^}]*right:\s*16px;[^}]*bottom:\s*auto;[^}]*width:\s*56px;[^}]*height:\s*56px;[^}]*transform:\s*translate3d\(0, var\(--mobile-nav-shift\), 0\);[^}]*opacity:\s*var\(--mobile-nav-opacity\);[^}]*will-change:\s*transform, opacity;[^}]*\}/,
+  );
+  expect(styles).toMatch(
+    /\.hero-sound-control__waves,\s*\.hero-sound-control__mute\s*\{[^}]*width:\s*28px;[^}]*height:\s*28px;/s,
+  );
+});
+
+it("places the tablet sound control directly beneath the tablet mail action", () => {
+  const styles = readFileSync("src/index.css", "utf8");
+
+  expect(styles).toMatch(
+    /@media \(min-width: 768px\) and \(max-width: 1023px\) \{[\s\S]*?\.hero-sound-control\s*\{[^}]*position:\s*fixed;[^}]*top:\s*344px;[^}]*right:\s*32px;[^}]*bottom:\s*auto;[^}]*width:\s*96px;[^}]*height:\s*96px;/,
+  );
 });
 
 it("renders the purple custom cursor layers", () => {
@@ -125,8 +319,20 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(loader).toHaveAttribute("data-phase", "lift");
     expect(loader).toHaveAttribute("data-transition", "curtain-up");
     expect(loader).toHaveClass("loading-screen--lift");
+    expect(container.querySelector(".audio-entry-gate")).toHaveAttribute(
+      "data-ready",
+      "true",
+    );
     expect(container.querySelector(".site-content")).toHaveClass(
       "site-content--revealing",
+    );
+
+    const stylesDuringLift = readFileSync("src/index.css", "utf8");
+    expect(stylesDuringLift).toMatch(
+      /\.loading-screen\s*\{[^}]*z-index:\s*210;/s,
+    );
+    expect(stylesDuringLift).toMatch(
+      /\.audio-entry-gate\s*\{[^}]*z-index:\s*190;/s,
     );
 
     act(() => vi.advanceTimersByTime(800));
@@ -521,6 +727,36 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(screen.queryByText("Brain")).not.toBeInTheDocument();
   });
 
+  it("reveals the desktop hero copy only after the sound gate choice", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    const entrance = screen.getByTestId("hero-copy-entrance");
+    expect(entrance).toHaveAttribute("data-intro", "hidden");
+    expect(entrance.querySelector(".hero-title-entrance")).toBeInTheDocument();
+    expect(entrance.querySelector(".hero-description-entrance")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(2999));
+    expect(entrance).toHaveAttribute("data-intro", "hidden");
+    act(() => vi.advanceTimersByTime(1));
+    expect(entrance).toHaveAttribute("data-intro", "hidden");
+    act(() => vi.advanceTimersByTime(800));
+    fireEvent.click(screen.getByRole("button", { name: "Sessiz devam et" }));
+    expect(entrance).toHaveAttribute("data-intro", "visible");
+
+    const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain("@keyframes desktop-hero-title-in");
+    expect(styles).toContain("@keyframes desktop-hero-description-in");
+    expect(styles).toContain(
+      '.hero-copy-entrance[data-intro="visible"] .hero-title-entrance',
+    );
+    expect(styles).toContain(
+      '.hero-copy-entrance[data-intro="visible"] .hero-description-entrance',
+    );
+    expect(styles).toContain("animation-delay: 80ms;");
+    expect(styles).toContain("animation-delay: 320ms;");
+  });
+
   it("keeps the Ritim ile Akış title on one line in its original left position", () => {
     vi.useFakeTimers();
     render(<App />);
@@ -534,24 +770,39 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(screen.getByTestId("hero-copy")).not.toHaveClass("items-center");
   });
 
-  it("moves the complete Ritim ile Akış copy block visibly downward", () => {
+  it("positions the complete Ritim ile Akış copy block for each viewport", () => {
     const styles = readFileSync("src/index.css", "utf8");
 
     expect(styles).toContain(".hero-copy { translate: 0 clamp(28px, 5vh, 52px); }");
-    expect(styles).toContain("translate: 0 clamp(128px, 16vh, 156px);");
+    expect(styles).toContain("translate: 0 clamp(8px, 1.5vh, 16px);");
     expect(styles).toContain(
-      ".hero-copy.hero-copy { padding-bottom: 0; translate: 0 calc(52 * var(--u)); }",
+      ".hero-copy { justify-content: flex-start; padding-top: .5rem; padding-bottom: 0; translate: 0; }",
+    );
+    expect(styles).toContain(
+      ".hero-copy.hero-copy { padding-bottom: 0; translate: 0 calc(12 * var(--u)); }",
     );
   });
 
-  it("enlarges the character only on mobile while keeping shoulder-object anchors fixed", () => {
+  it("enlarges the character and attached objects only on mobile and tablet", () => {
     const styles = readFileSync("src/index.css", "utf8");
 
     expect(styles).toContain(
       ".hero-model-video { height: 100%; transform: translateX(-50%); transform-origin: center bottom; }",
     );
     expect(styles).toContain(
-      ".hero-model-video { height: clamp(34%, calc(100% - 404px), 54%); max-width: 94vw; object-position: center bottom; transform: translateX(-50%) scale(1.12); }",
+      ".hero-model-video { height: min(64%, 99.04vw); max-width: 112vw; object-position: center bottom; transform: translateX(-50%) scale(1.12); }",
+    );
+    expect(styles).toContain(
+      ".model-anchor__box { height: min(64%, 99.04vw); }",
+    );
+    expect(styles).toContain(
+      "@media (min-width: 768px) and (max-width: 1023px)",
+    );
+    expect(styles).toContain(
+      ".hero-model-video { height: min(86%, 90vw); max-width: 110vw; }",
+    );
+    expect(styles).toContain(
+      ".model-anchor__box { height: min(86%, 90vw); }",
     );
     expect(styles).not.toMatch(/\.model-anchor__box[^}]*scale\(/s);
   });
@@ -582,6 +833,83 @@ describe("Üç Üç Sıfır landing page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Prodüksiyon/i }));
 
     expect(screen.getByText("Bağlı — 94.5 · Prodüksiyon")).toBeInTheDocument();
+  });
+
+  it("assigns a distinct waveform profile to every station", () => {
+    const { container } = render(<App />);
+    const wave = container.querySelector(".st-wave");
+
+    expect(wave).toHaveAttribute("data-wave-profile", "idle");
+
+    for (const [station, profile] of [
+      ["Yazılım", "software"],
+      ["Prodüksiyon", "production"],
+      ["Büyüme", "growth"],
+      ["Diğer", "other"],
+    ] as const) {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(station, "i") }));
+      expect(wave).toHaveAttribute("data-wave-profile", profile);
+    }
+  });
+
+  it("keeps every waveform safely inside the visible wave band", () => {
+    const waveY = getSignalWaveY();
+    const profiles: WaveProfile[] = ["idle", "software", "production", "growth", "other"];
+
+    for (const profile of profiles) {
+      const samples = Array.from({ length: 301 }, (_, index) =>
+        waveY(profile, index * 4, 1800),
+      );
+      expect(Math.min(...samples)).toBeGreaterThanOrEqual(5);
+      expect(Math.max(...samples)).toBeLessThanOrEqual(51);
+    }
+  });
+
+  it("adds glow at every size and vertically stretches only the desktop waveform", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+
+    expect(styles).toContain(
+      ".st-wave path{opacity:1;filter:drop-shadow(0 0 5px rgba(164,143,255,.72))}",
+    );
+    expect(styles).toContain(
+      "@media (min-width:761px){\n  .st-wave{height:88px}\n  .st-wave path{stroke-width:2.25;transform:scaleY(1.55);transform-box:view-box;transform-origin:center}",
+    );
+    expect(styles).not.toContain(
+      "@media (max-width:760px){\n  .st-wave path{transform:scaleY(1.55)",
+    );
+  });
+
+  it("gives software a regular repeating flow", () => {
+    const waveY = getSignalWaveY();
+
+    for (let x = 0; x <= 1040; x += 40) {
+      expect(waveY("software", x, 900)).toBeCloseTo(
+        waveY("software", x + 160, 900),
+        5,
+      );
+    }
+  });
+
+  it("makes the growth wave progressively stronger without overflowing", () => {
+    const waveY = getSignalWaveY();
+    const amplitude = (from: number, to: number) =>
+      Math.max(
+        ...Array.from({ length: (to - from) / 4 + 1 }, (_, index) =>
+          Math.abs(waveY("growth", from + index * 4, 0) - 28),
+        ),
+      );
+
+    expect(amplitude(960, 1200)).toBeGreaterThan(amplitude(0, 240) * 2.5);
+  });
+
+  it("gives the other wave a slow heartbeat with a mostly calm baseline", () => {
+    const waveY = getSignalWaveY();
+    const samples = Array.from({ length: 321 }, (_, x) => waveY("other", x, 0));
+    const calmSamples = samples.filter((y) => Math.abs(y - 28) < 1.5);
+
+    expect(calmSamples.length / samples.length).toBeGreaterThan(0.72);
+    expect(Math.max(...samples) - Math.min(...samples)).toBeGreaterThan(20);
   });
 
   it("uses the requested communication call-to-action copy", () => {
@@ -622,7 +950,7 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(styles).toContain(".st-kicker{transform:translate(-18px,-32px)");
   });
 
-  it("moves only the waveform lower while extending the needle to the card", () => {
+  it("moves only the waveform lower while allowing the needle to extend to a card", () => {
     const { container } = render(<App />);
     const styles = container.querySelector(".st-root > style")?.textContent;
 
@@ -630,7 +958,12 @@ describe("Üç Üç Sıfır landing page", () => {
       ".st-tuner-head{transform:translateY(-60px)}",
     );
     expect(styles).toContain(".st-wave{transform:translateY(28px)}");
-    expect(styles).toContain("top:-124px;bottom:-100px;");
+    expect(styles).toContain(
+      "top:-124px;bottom:var(--st-desktop-needle-bottom);",
+    );
+    expect(styles).toContain(
+      "transition:bottom 1.05s cubic-bezier(.45,0,.2,1)",
+    );
   });
 
   it("uses the signal-led introduction in Geist", () => {
@@ -682,7 +1015,9 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(styles).toContain(
       ".st-stations{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:100px}",
     );
-    expect(styles).toContain("top:-124px;bottom:-100px");
+    expect(styles).toContain(
+      "top:-124px;bottom:var(--st-desktop-needle-bottom)",
+    );
     expect(styles).toContain("--st-rail-offset:80px");
     expect(styles).toContain(".st-rail::before{content:'';position:absolute;inset:0 0 auto;height:1px;background:var(--st-line);transform:translateY(var(--st-rail-offset))}");
     expect(styles).toContain(".st-ticks,.st-ticks-fine{position:absolute;inset:0;background-repeat:no-repeat;transform:translateY(var(--st-rail-offset))}");
@@ -695,27 +1030,87 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(needle).toHaveStyle({ left: "12.5%" });
   });
 
-  it("aligns the mobile tuner needle with both rows of the two-column station grid", () => {
+  it("rests the needle on the rail until a station is selected", () => {
+    const { container } = render(<App />);
+    const band = container.querySelector(".st-band") as HTMLElement;
+    const needle = container.querySelector(".st-needle");
+    const software = screen.getByRole("button", { name: /Yazılım/i });
+
+    expect(screen.getAllByRole("button", { pressed: false })).toEqual(
+      expect.arrayContaining([
+        software,
+        screen.getByRole("button", { name: /Prodüksiyon/i }),
+        screen.getByRole("button", { name: /Büyüme/i }),
+        screen.getByRole("button", { name: /Diğer/i }),
+      ]),
+    );
+    expect(screen.getByText("Frekansını seç")).toBeInTheDocument();
+    expect(needle).toHaveAttribute("data-extension", "resting");
+    expect(band.style.getPropertyValue("--st-desktop-needle-bottom")).toBe(
+      "calc(34px - var(--st-rail-offset))",
+    );
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("34px");
+
+    fireEvent.click(software);
+
+    expect(software).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Bağlı — 88.1 · Yazılım")).toBeInTheDocument();
+    expect(needle).toHaveAttribute("data-extension", "connected");
+    expect(band.style.getPropertyValue("--st-desktop-needle-bottom")).toBe("-100px");
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("-36px");
+  });
+
+  it("aligns the mobile tuner column with both rows of the two-column station grid", () => {
     const { container } = render(<App />);
     const styles = container.querySelector(".st-root > style")?.textContent;
     const band = container.querySelector(".st-band") as HTMLElement;
 
     expect(styles).toContain(
-      ".st-needle{left:var(--st-mobile-column)!important;bottom:var(--st-mobile-bottom);",
+      ".st-needle{left:var(--st-mobile-column)!important;bottom:var(--st-mobile-needle-bottom);",
     );
     expect(styles).toContain("grid-auto-rows:125px");
     expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(25% - 2.5px)");
-    expect(band.style.getPropertyValue("--st-mobile-bottom")).toBe("-36px");
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("34px");
 
     fireEvent.click(screen.getByRole("button", { name: /Büyüme/i }));
 
     expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(25% - 2.5px)");
-    expect(band.style.getPropertyValue("--st-mobile-bottom")).toBe("-171px");
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("-36px");
 
     fireEvent.click(screen.getByRole("button", { name: /Diğer/i }));
 
     expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(75% + 2.5px)");
-    expect(band.style.getPropertyValue("--st-mobile-bottom")).toBe("-171px");
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("-36px");
+  });
+
+  it("routes mobile bottom-row connections behind the top-row cards", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+    const band = container.querySelector(".st-band") as HTMLElement;
+    const bridge = container.querySelector(".st-needle-bridge");
+
+    expect(styles).toContain(".st-needle-bridge{display:none}");
+    expect(styles).toContain(
+      ".st-needle-bridge{display:block;position:absolute;top:195px;height:10px;",
+    );
+    expect(bridge).toHaveAttribute("data-visible", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: /Büyüme/i }));
+
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("-36px");
+    expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(25% - 2.5px)");
+    expect(bridge).toHaveAttribute("data-visible", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: /Diğer/i }));
+
+    expect(band.style.getPropertyValue("--st-mobile-needle-bottom")).toBe("-36px");
+    expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(75% + 2.5px)");
+    expect(bridge).toHaveAttribute("data-visible", "true");
+    expect(band.style.getPropertyValue("--st-desktop-needle-bottom")).toBe("-100px");
+
+    fireEvent.click(screen.getByRole("button", { name: /Prodüksiyon/i }));
+
+    expect(bridge).toHaveAttribute("data-visible", "false");
   });
 
   it("moves the mobile signal indicator inward from the clipped left edge", () => {
@@ -765,6 +1160,21 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(styles).toContain(".hero-copy-layout { flex-direction: column; align-items: stretch; gap: 1.5rem; }");
   });
 
+  it("keeps the mobile hero copy compact and clear of the character", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(
+      ".hero-copy { justify-content: flex-start; padding-top: 1.5rem; padding-bottom: 0; translate: 0 clamp(8px, 1.5vh, 16px); }",
+    );
+    expect(styles).toContain(".hero-copy-layout > div { gap: 0.75rem; }");
+    expect(styles).toContain(
+      ".hero-primary-heading { max-width: 15rem; white-space: normal; font-size: clamp(38px, 10.8vw, 46px); line-height: .88; }",
+    );
+    expect(styles).toContain(
+      ".hero-description { max-width: 18.5rem; font-size: clamp(11px, 3vw, 12px); line-height: 1.55; }",
+    );
+  });
+
   it("softens the model's lower edge into the hero background", () => {
     const { container } = render(<App />);
     const fade = container.querySelector('[data-testid="hero-model-fade"]');
@@ -773,6 +1183,21 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(fade).toHaveClass("hero-model-fade");
     expect(fade).toHaveClass("hero-model-fade--subtle");
     expect(fade).toHaveClass("z-20");
+  });
+
+  it("keeps the lower-edge blur below bright character highlights", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+    const fadeRule = styles.match(/\.hero-model-fade--subtle\s*\{([^}]*)\}/s)?.[1];
+    const blurRule = styles.match(
+      /\.hero-model-fade--subtle::after\s*\{([^}]*)\}/s,
+    )?.[1];
+
+    expect(fadeRule).toBeDefined();
+    expect(fadeRule).not.toContain("backdrop-filter");
+    expect(fadeRule).toContain("height: clamp(120px, 18vh, 210px)");
+    expect(blurRule).toContain("inset: 52% 0 -18px");
+    expect(blurRule).toContain("backdrop-filter: blur(3px)");
+    expect(blurRule).toContain("mask-image: linear-gradient");
   });
 
   it("veils the moving Clavis Futuri band behind the foreground", () => {
@@ -815,6 +1240,19 @@ describe("Üç Üç Sıfır landing page", () => {
       expect(orb).toHaveClass("h-[.28em]", "w-[.28em]");
     }
     expect(container.querySelector('[data-testid="hero-wordmark"]')).not.toHaveTextContent("•");
+  });
+
+  it("rolls the Clavis Futuri globes left at the band's linear speed", () => {
+    expect(clavisOrbRotationDuration(5200, 100, 52)).toBeCloseTo(Math.PI);
+
+    const { container } = render(<App />);
+    const globe = container.querySelector('[data-testid="clavis-futuri-orb"]');
+
+    expect(globe).toHaveClass("clavis-futuri-orb--rolling-left");
+
+    const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain("animation: clavis-orb-roll-left var(--clavis-orb-rotation-duration) linear infinite;");
+    expect(styles).toContain("to { transform: rotate(-1turn); }");
   });
 
   it("keeps the Clavis Futuri globes brighter than the veiled wordmark", () => {
@@ -892,9 +1330,359 @@ describe("Üç Üç Sıfır landing page", () => {
       container.querySelectorAll('[data-testid="section-transition"]'),
     ).toHaveLength(5);
   });
+
+  it("marks the coming-soon section as the panel that rises over the mobile hero", () => {
+    const { container } = render(<App />);
+
+    expect(
+      container.querySelector('[data-testid="cinematic-panel"]'),
+    ).toHaveClass("cinematic-panel");
+  });
+
+  it("places every post-hero section in the sitewide scroll stack", () => {
+    render(<App />);
+    const track = screen.getByTestId("cinematic-scroll-track");
+    const cinematic = screen.getByTestId("cinematic-panel");
+    const logo = screen.getByTestId("logo-section");
+
+    expect(track).toHaveClass("site-panel-track");
+    expect(track).toContainElement(cinematic);
+    expect(cinematic).toHaveClass("site-stack-panel");
+    expect(logo).toHaveClass("site-stack-panel", "logo-panel");
+  });
 });
 
 describe("hero scroll scrubbing", () => {
+  it("keeps the desktop wordmark until the 330 panel approaches", () => {
+    expect(desktopWordmarkExitProgress(900, 800)).toBe(0);
+    expect(desktopWordmarkExitProgress(576, 800)).toBe(0);
+    expect(desktopWordmarkExitProgress(400, 800)).toBeGreaterThan(0);
+    expect(desktopWordmarkExitProgress(160, 800)).toBe(1);
+    expect(desktopWordmarkExitProgress(-100, 800)).toBe(1);
+  });
+
+  it("moves desktop navigation away before the incoming panel reaches it", () => {
+    expect(desktopHeroChromeProgress(0, 800)).toBe(0);
+    expect(desktopHeroChromeProgress(144, 800)).toBe(0);
+    expect(desktopHeroChromeProgress(400, 800)).toBeGreaterThan(0);
+    expect(desktopHeroChromeProgress(544, 800)).toBe(1);
+    expect(desktopHeroChromeProgress(900, 800)).toBe(1);
+    expect(desktopHeroChromeProgress(-100, 800)).toBe(0);
+  });
+
+  it("maps the first mobile viewport into ordered reversible hero phases", () => {
+    expect(mobileHeroSceneProgress(0, 800)).toEqual({
+      navExit: 0,
+      copyReveal: 0,
+      indicatorExit: 0,
+    });
+    expect(mobileHeroSceneProgress(800, 800)).toEqual({
+      navExit: 1,
+      copyReveal: 1,
+      indicatorExit: 1,
+    });
+    expect(mobileHeroSceneProgress(-100, 800).copyReveal).toBe(0);
+    expect(mobileHeroSceneProgress(1200, 800).copyReveal).toBe(1);
+
+    const beforeCopy = mobileHeroSceneProgress(320, 800);
+    expect(beforeCopy.navExit).toBeGreaterThan(0);
+    expect(beforeCopy.copyReveal).toBe(0);
+  });
+
+  it("starts the mobile hero with brand, contacts, character, objects, band, and scroll cue while copy waits", () => {
+    render(<App />);
+
+    const shell = screen.getByTestId("site-shell");
+    expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("0");
+    expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
+    expect(screen.getByTestId("nav-wordmark")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-tagline")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-contact-actions")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-video")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-object-1")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-object-2")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-cube-object")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-wordmark")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-copy")).toHaveClass("hero-copy");
+    expect(screen.getByTestId("hero-scroll-indicator")).toHaveClass("flex");
+    expect(screen.getByTestId("hero-scroll-indicator")).not.toHaveClass("hidden");
+  });
+
+  it("drives the mobile brand exit and copy reveal forward and backward from native scroll", () => {
+    vi.stubGlobal("innerHeight", 800);
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(max-width: 767px)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    render(<App />);
+    const shell = screen.getByTestId("site-shell");
+    const track = screen.getByTestId("hero-scroll-track");
+    let trackTop = 0;
+    vi.spyOn(track, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          top: trackTop,
+          height: 2880,
+          left: 0,
+          width: 390,
+          right: 390,
+          bottom: trackTop + 2880,
+        }) as DOMRect,
+    );
+
+    trackTop = -320;
+    fireEvent.scroll(window);
+    expect(Number(shell.style.getPropertyValue("--mobile-nav-exit"))).toBeGreaterThan(0);
+    expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
+
+    trackTop = -800;
+    fireEvent.scroll(window);
+    expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("1");
+    expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("1");
+
+    trackTop = 0;
+    fireEvent.scroll(window);
+    expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("0");
+    expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
+  });
+
+  it("drives the same navigation exit and copy reveal choreography on tablets", () => {
+    vi.stubGlobal("innerHeight", 800);
+    vi.stubGlobal("innerWidth", 820);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches:
+          query === "(max-width: 1023px), (hover: none), (pointer: coarse)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    render(<App />);
+    const shell = screen.getByTestId("site-shell");
+    const track = screen.getByTestId("hero-scroll-track");
+    let trackTop = 0;
+    vi.spyOn(track, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          top: trackTop,
+          height: 2080,
+          left: 0,
+          width: 820,
+          right: 820,
+          bottom: trackTop + 2080,
+        }) as DOMRect,
+    );
+
+    trackTop = -320;
+    fireEvent.scroll(window);
+    expect(Number(shell.style.getPropertyValue("--mobile-nav-exit"))).toBeGreaterThan(0);
+    expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
+
+    trackTop = -800;
+    fireEvent.scroll(window);
+    expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("1");
+    expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("1");
+  });
+
+  it("moves the mobile contact actions out with the two brand marks", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toMatch(
+      /\.nav-brand,\s*\.nav-contact\s*\{[^}]*transform:\s*translate3d\(0, var\(--mobile-nav-shift\), 0\);[^}]*opacity:\s*var\(--mobile-nav-opacity\);/s,
+    );
+  });
+
+  it("gives the left wordmark its own late desktop exit while the right group leaves early", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+    render(<App />);
+
+    expect(styles).toMatch(
+      /\.nav-brand--secondary,\s*\.nav-contact\s*\{[^}]*transform:\s*translate3d\(0, var\(--desktop-chrome-shift\), 0\);[^}]*opacity:\s*var\(--desktop-chrome-opacity\);/s,
+    );
+    expect(styles).toMatch(
+      /\.nav-brand--persistent\s*\{[^}]*transform:\s*translate3d\(0, var\(--desktop-wordmark-shift\), 0\);[^}]*opacity:\s*var\(--desktop-wordmark-opacity\);/s,
+    );
+    expect(
+      screen.getByTestId("nav-wordmark-text").parentElement,
+    ).toHaveClass("nav-brand--persistent");
+    expect(screen.getByTestId("nav-tagline")).toHaveClass(
+      "nav-brand--secondary",
+    );
+  });
+
+  it("updates desktop navigation motion variables from native scroll", () => {
+    vi.stubGlobal("innerHeight", 800);
+    vi.stubGlobal("innerWidth", 1280);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches:
+          query ===
+          "(min-width: 1024px) and (hover: hover) and (pointer: fine)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    render(<App />);
+    const shell = screen.getByTestId("site-shell");
+    const track = screen.getByTestId("hero-scroll-track");
+    const logoPanel = screen.getByTestId("logo-section");
+    let trackTop = 0;
+    let logoPanelTop = 1800;
+    vi.spyOn(track, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          top: trackTop,
+          height: 1600,
+          left: 0,
+          width: 1280,
+          right: 1280,
+          bottom: trackTop + 1600,
+        }) as DOMRect,
+    );
+    vi.spyOn(logoPanel, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          top: logoPanelTop,
+          height: 900,
+          left: 0,
+          width: 1280,
+          right: 1280,
+          bottom: logoPanelTop + 900,
+        }) as DOMRect,
+    );
+
+    trackTop = -400;
+    fireEvent.scroll(window);
+    expect(
+      Number(shell.style.getPropertyValue("--desktop-chrome-exit")),
+    ).toBeGreaterThan(0);
+    expect(
+      Number.parseFloat(
+        shell.style.getPropertyValue("--desktop-chrome-shift"),
+      ),
+    ).toBeLessThan(0);
+    expect(
+      Number(shell.style.getPropertyValue("--desktop-chrome-opacity")),
+    ).toBeLessThan(1);
+    expect(shell.style.getPropertyValue("--desktop-wordmark-exit")).toBe("0");
+    expect(shell.style.getPropertyValue("--desktop-wordmark-shift")).toBe("0px");
+    expect(shell.style.getPropertyValue("--desktop-wordmark-opacity")).toBe("1");
+
+    logoPanelTop = 400;
+    fireEvent.scroll(window);
+    expect(
+      Number(shell.style.getPropertyValue("--desktop-wordmark-exit")),
+    ).toBeGreaterThan(0);
+    expect(
+      Number.parseFloat(
+        shell.style.getPropertyValue("--desktop-wordmark-shift"),
+      ),
+    ).toBeLessThan(0);
+
+    logoPanelTop = 160;
+    fireEvent.scroll(window);
+    expect(shell.style.getPropertyValue("--desktop-wordmark-exit")).toBe("1");
+    expect(shell.style.getPropertyValue("--desktop-wordmark-opacity")).toBe("0");
+
+    trackTop = 0;
+    logoPanelTop = 1800;
+    fireEvent.scroll(window);
+    expect(shell.style.getPropertyValue("--desktop-chrome-exit")).toBe("0");
+    expect(shell.style.getPropertyValue("--desktop-chrome-shift")).toBe("0px");
+    expect(shell.style.getPropertyValue("--desktop-chrome-opacity")).toBe("1");
+    expect(shell.style.getPropertyValue("--desktop-wordmark-exit")).toBe("0");
+    expect(shell.style.getPropertyValue("--desktop-wordmark-shift")).toBe("0px");
+    expect(shell.style.getPropertyValue("--desktop-wordmark-opacity")).toBe("1");
+  });
+
+  it("renders a higher-contrast scroll cue without an arrow tip", () => {
+    render(<App />);
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(screen.getByText("Scroll")).toHaveClass("scroll-cue-label");
+    expect(styles).toContain(".scroll-cue-label");
+    expect(styles).toMatch(/\.scroll-line\s*\{[^}]*width:\s*2px;[^}]*height:\s*52px;/s);
+    expect(styles).not.toMatch(/\.scroll-line::before\s*\{/s);
+  });
+
+  it("uses the mobile scene variables only for navigation, copy, and scroll-cue transitions", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(
+      ".hero-copy { opacity: var(--mobile-copy-reveal); transform: translate3d(0, var(--mobile-copy-shift), 0);",
+    );
+    expect(styles).toContain(
+      ".hero-scroll-indicator { opacity: var(--mobile-indicator-opacity);",
+    );
+    expect(styles).not.toMatch(/\.hero-(?:model-video|object|wordmark)\s*\{[^}]*--mobile-(?:nav|copy)/s);
+  });
+
+  it("keeps the contact controls positioned from the viewport while their group exits with navigation", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(
+      ".site-content {\n  opacity: 1;\n  transform: none;",
+    );
+    expect(screen.queryByTestId("hero-contact-actions")).not.toBeInTheDocument();
+
+    render(<App />);
+    expect(screen.getByTestId("hero-contact-actions")).toHaveClass("fixed");
+  });
+
+  it("keeps a tall stack panel's bottom edge pinned after its content scrolls", () => {
+    expect(stackPanelStickyTop(1479, 1080)).toBe(-399);
+    expect(stackPanelStickyTop(900, 1080)).toBe(0);
+    expect(stackPanelStickyTop(1080, 1080)).toBe(0);
+  });
+
+  it("writes the measured 1920 desktop sticky offset onto the tracked panel", () => {
+    vi.stubGlobal("innerHeight", 1080);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        const height =
+          this.getAttribute("data-testid") === "cinematic-panel" ? 1479 : 0;
+        return {
+          x: 0,
+          y: 0,
+          top: 0,
+          right: 1920,
+          bottom: height,
+          left: 0,
+          width: 1920,
+          height,
+          toJSON: () => ({}),
+        } as DOMRect;
+      },
+    );
+
+    render(<App />);
+
+    expect(
+      screen
+        .getByTestId("cinematic-panel")
+        .style.getPropertyValue("--site-stack-sticky-top"),
+    ).toBe("-399px");
+  });
+
+  it("excludes the final mobile viewport from the hero video scrub distance", () => {
+    expect(heroScrollScrubDistance(3600, 1000, true)).toBe(1600);
+    expect(heroScrollScrubDistance(2600, 1000, false)).toBe(1600);
+    expect(heroScrollScrubDistance(1000, 1000, false)).toBe(0);
+  });
+
   it("maps scroll progress onto the video timeline and clamps both ends", () => {
     const maxTime = 20 - 1 / 30;
     expect(heroScrollVideoTime(0, 1000, 20)).toBe(0);
@@ -908,16 +1696,84 @@ describe("hero scroll scrubbing", () => {
     expect(heroScrollVideoTime(500, 1000, Number.NaN)).toBe(0);
   });
 
-  it("pins the hero on a mobile scroll track that drives the character video", () => {
+  it("pins the hero on a mobile and tablet scroll track that drives the character video", () => {
     const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain(
+      "@media (max-width: 1023px), (hover: none), (pointer: coarse)",
+    );
     expect(styles).toContain(".hero-scroll-track { height: 260dvh; }");
     expect(styles).toContain(
       ".hero-scroll-track .hero-stage { position: sticky; top: 0; }",
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 1023px\), \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.nav-brand,\s*\.nav-contact\s*\{[^}]*transform:\s*translate3d\(0, var\(--mobile-nav-shift\), 0\);[^}]*opacity:\s*var\(--mobile-nav-opacity\);/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 1023px\), \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.hero-copy\s*\{[^}]*opacity:\s*var\(--mobile-copy-reveal\);[^}]*transform:\s*translate3d\(0, var\(--mobile-copy-shift\), 0\);/,
     );
     // overflow-x: hidden on body would turn it into a scroll container and
     // silently break the sticky pinning; clip does not.
     expect(styles).toContain("overflow-x: clip");
     expect(styles).not.toContain("overflow-x: hidden");
+  });
+
+  it("raises the mobile coming-soon panel only after the hero scrub phase", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain("@media (max-width: 767px)");
+    expect(styles).toContain(".hero-scroll-track { height: 360dvh; }");
+    expect(styles).toContain(
+      ".site-panel-track { position: relative; z-index: 40; margin-top: -100dvh;",
+    );
+    expect(styles).toContain("background-color: #08060d;");
+    expect(styles).toContain("border-top: 0;");
+    expect(styles).toContain(
+      "mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .45) 24px, #000 72px);",
+    );
+    expect(styles).toContain("border-radius: 28px 28px 0 0;");
+  });
+
+  it("keeps the rounded card surface on the coming-soon panel and removes it behind 330", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toMatch(
+      /\.cinematic-panel\s*\{[^}]*border-radius:\s*28px 28px 0 0;[^}]*box-shadow:/s,
+    );
+    expect(styles).toMatch(
+      /\.logo-panel\s*\{[^}]*border-radius:\s*0;[^}]*box-shadow:\s*none;/s,
+    );
+    expect(styles).not.toMatch(
+      /\.site-stack-panel\s*\{[^}]*border-radius:/s,
+    );
+  });
+
+  it("raises the coming-soon panel over the pinned hero on pointer desktop", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(
+      "@media (min-width: 1024px) and (hover: hover) and (pointer: fine)",
+    );
+    expect(styles).toContain(".hero-scroll-track { height: 200dvh; }");
+    expect(styles).toContain(
+      ".hero-scroll-track .hero-stage { position: sticky; top: 0; }",
+    );
+    expect(styles).toContain(
+      ".site-panel-track { position: relative; z-index: 40; margin-top: -100dvh;",
+    );
+  });
+
+  it("stacks every main panel from mobile through 1920 desktop", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(
+      ".site-panel-track { position: relative; z-index: 40; margin-top: -100dvh; padding-bottom: 100dvh; }",
+    );
+    expect(styles).toContain(
+      ".site-panel-track > .site-stack-panel { position: sticky; top: var(--site-stack-sticky-top, 0px); }",
+    );
+    expect(styles).toContain(
+      ".logo-panel { position: relative; z-index: 50; margin-top: -100dvh;",
+    );
   });
 
   it("pins the character to the screen bottom with the marquee flowing behind it", () => {
@@ -976,6 +1832,80 @@ describe("hero scroll scrubbing", () => {
     flushAnimationFrames();
     expect(hero.currentTime).toBeCloseTo(heroScrollVideoTime(250, 1000, 4));
   });
+
+  it("keeps the desktop character video pointer-driven while the panel reveal uses scroll", () => {
+    const desktopPointerQuery =
+      "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === desktopPointerQuery,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+
+    const { container } = render(<App />);
+    const hero = container.querySelector(
+      '[data-testid="hero-video"]',
+    ) as HTMLVideoElement;
+    const track = container.querySelector(
+      '[data-testid="hero-scroll-track"]',
+    ) as HTMLDivElement;
+    Object.defineProperty(hero, "duration", { configurable: true, value: 4 });
+    fireEvent.loadedMetadata(hero);
+
+    vi.spyOn(track, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          top: -500,
+          height: window.innerHeight + 1000,
+        }) as DOMRect,
+    );
+    fireEvent.scroll(window);
+    for (const callback of rafQueue.splice(0)) callback(0);
+
+    expect(hero.currentTime).toBeCloseTo(1 / 30);
+  });
+
+  it("ignores pointer-driven video scrubbing on tablet and touch input", () => {
+    const mediaQuery = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    vi.stubGlobal("matchMedia", mediaQuery);
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+
+    const { container } = render(<App />);
+    const hero = container.querySelector(
+      '[data-testid="hero-video"]',
+    ) as HTMLVideoElement;
+    const stage = screen.getByTestId("hero-stage");
+    stage.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 1000, height: 600 }) as DOMRect;
+    Object.defineProperty(hero, "duration", { configurable: true, value: 4 });
+    fireEvent.loadedMetadata(hero);
+
+    fireEvent.mouseMove(stage, { clientX: 100, clientY: 300 });
+    fireEvent.mouseMove(stage, { clientX: 900, clientY: 300 });
+    for (const callback of rafQueue.splice(0)) callback(0);
+
+    expect(mediaQuery).toHaveBeenCalledWith(
+      "(min-width: 1024px) and (hover: hover) and (pointer: fine)",
+    );
+    expect(hero.currentTime).toBeCloseTo(1 / 30);
+  });
 });
 
 describe("hero video mouse timing", () => {
@@ -1007,7 +1937,7 @@ it("uses the original local WebM for the hero scene", () => {
   ).toBe("/media/hero/hero-model.webm");
 });
 
-it("starts the supplied hero video on its first frame", () => {
+it("seeks into the first decodable hero frame so mobile Safari paints the model", () => {
   const { container } = render(<App />);
   const hero = container.querySelector(
     '[data-testid="hero-video"]',
@@ -1015,5 +1945,5 @@ it("starts the supplied hero video on its first frame", () => {
   Object.defineProperty(hero, "duration", { configurable: true, value: 10 });
   hero.currentTime = 1;
   fireEvent.loadedMetadata(hero);
-  expect(hero.currentTime).toBe(0);
+  expect(hero.currentTime).toBeCloseTo(1 / 30);
 });

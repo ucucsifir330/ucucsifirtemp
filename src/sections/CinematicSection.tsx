@@ -3,7 +3,10 @@ import { MEDIA } from "../config/media";
 
 export default function CinematicSection() {
   return (
-    <section className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#08060d]/70 px-5 py-28 sm:px-8 lg:py-36">
+    <section
+      data-testid="cinematic-panel"
+      className="site-stack-panel cinematic-panel relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#08060d]/70 px-5 py-28 sm:px-8 lg:py-36"
+    >
       <img
         data-testid="signal-background"
         src={MEDIA.backgrounds.cosmicField}

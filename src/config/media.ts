@@ -1,4 +1,8 @@
 export const MEDIA = {
+  audio: {
+    soundtrackM4a: "/media/audio/pure-system-silence.m4a",
+    soundtrackMp3: "/media/audio/pure-system-silence.mp3",
+  },
   backgrounds: {
     cosmicField: "/media/backgrounds/cosmic-field.png",
     vortexTexture: "/media/backgrounds/vortex-texture.png",
