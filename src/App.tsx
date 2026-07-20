@@ -1101,13 +1101,20 @@ function App() {
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+          <img
+            data-testid="hero-model-fallback"
+            src={MEDIA.hero.modelPoster}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            className="hero-model-video hero-model-fallback pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"
+          />
           <video
             data-testid="hero-video"
             ref={video}
             muted
             playsInline
             preload="auto"
-            poster={MEDIA.hero.modelPoster}
             disablePictureInPicture
             aria-hidden="true"
             className="hero-model-video pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"

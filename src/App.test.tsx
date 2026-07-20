@@ -1937,13 +1937,18 @@ it("uses the original local WebM for the hero scene", () => {
   ).toBe("/media/hero/hero-model.webm");
 });
 
-it("keeps the hero character visible when mobile WebKit cannot decode WebM", () => {
+it("keeps an independent hero fallback behind video on mobile WebKit", () => {
   const { container } = render(<App />);
+  const fallback = container.querySelector(
+    '[data-testid="hero-model-fallback"]',
+  );
   expect(
-    container
-      .querySelector('[data-testid="hero-video"]')
-      ?.getAttribute("poster"),
+    fallback?.getAttribute("src"),
   ).toBe("/media/hero/hero-model-poster.png");
+  expect(fallback).toHaveClass("hero-model-fallback");
+  expect(
+    container.querySelector('[data-testid="hero-video"]'),
+  ).not.toHaveAttribute("poster");
 });
 
 it("seeks into the first decodable hero frame so mobile Safari paints the model", () => {
