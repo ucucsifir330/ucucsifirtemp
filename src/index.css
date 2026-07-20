@@ -119,7 +119,7 @@ html body [class] {
 @media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
   .custom-cursor { display: none; }
 }
-.nav-sup { right: -12px; top: 2px; }
+.nav-sup { right: -4px; top: 4px; }
 
 .font-galgo {
   font-family: 'Galgo', sans-serif;
@@ -693,7 +693,7 @@ html body [class] {
 @media (min-width: 1024px) and (orientation: landscape) {
   .site-nav.site-nav { height: calc(128 * var(--u)); padding-inline: calc(32 * var(--u)); }
   .nav-brand.nav-brand { font-size: calc(84 * var(--u)); }
-  .nav-sup.nav-sup { font-size: calc(18 * var(--u)); right: calc(-12 * var(--u)); top: calc(2 * var(--u)); }
+  .nav-sup.nav-sup { font-size: calc(18 * var(--u)); right: calc(-4 * var(--u)); top: calc(4 * var(--u)); }
   .nav-contact.nav-contact { right: calc(32 * var(--u)); top: calc(128 * var(--u)); gap: calc(12 * var(--u)); }
   .contact-icon-button.contact-icon-button { width: calc(96 * var(--u)); height: calc(96 * var(--u)); }
   .contact-icon--wa.contact-icon--wa { width: calc(40 * var(--u)); height: calc(40 * var(--u)); }

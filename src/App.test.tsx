@@ -248,6 +248,10 @@ describe("Üç Üç Sıfır landing page", () => {
     const packageJson = readFileSync("package.json", "utf8");
 
     expect(html).toContain("<title>Üç Üç Sıfır</title>");
+    expect(html).toContain(
+      '<link rel="icon" type="image/png" href="/favicon-330.png" />',
+    );
+    expect(existsSync("public/favicon-330.png")).toBe(true);
     expect(packageJson).toContain('"name": "uc-uc-sifir"');
   });
 
@@ -360,6 +364,11 @@ describe("Üç Üç Sıfır landing page", () => {
       "sm:text-[84px]",
     );
     expect(screen.getByTestId("nav-copyright")).toHaveClass("nav-sup");
+    const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain(".nav-sup { right: -4px; top: 4px; }");
+    expect(styles).toContain(
+      ".nav-sup.nav-sup { font-size: calc(18 * var(--u)); right: calc(-4 * var(--u)); top: calc(4 * var(--u)); }",
+    );
     expect(screen.queryByLabelText("Toggle navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "About" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Metrics" })).not.toBeInTheDocument();
