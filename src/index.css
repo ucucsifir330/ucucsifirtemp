@@ -547,6 +547,7 @@ html body [class] {
 
 /* Keep the reference character scale outside the mobile composition. */
 .hero-model-video { height: 100%; transform: translateX(-50%); transform-origin: center bottom; }
+.hero-model-fallback { display: none; }
 
 .hero-copy { translate: 0 clamp(28px, 5vh, 52px); }
 
@@ -577,6 +578,7 @@ html body [class] {
 @media (max-width: 1023px), (hover: none), (pointer: coarse) {
   .hero-scroll-track { height: 260dvh; }
   .hero-scroll-track .hero-stage { position: sticky; top: 0; }
+  .hero-model-fallback { display: block; }
   .hero-model-source { display: none; }
   .nav-brand,
   .nav-contact {
@@ -693,7 +695,7 @@ html body [class] {
 @media (min-width: 1024px) and (orientation: landscape) {
   .site-nav.site-nav { height: calc(128 * var(--u)); padding-inline: calc(32 * var(--u)); }
   .nav-brand.nav-brand { font-size: calc(84 * var(--u)); }
-  .nav-sup.nav-sup { font-size: calc(18 * var(--u)); right: calc(-4 * var(--u)); top: calc(4 * var(--u)); }
+  .nav-sup.nav-sup { font-size: calc(18 * var(--u)); }
   .nav-contact.nav-contact { right: calc(32 * var(--u)); top: calc(128 * var(--u)); gap: calc(12 * var(--u)); }
   .contact-icon-button.contact-icon-button { width: calc(96 * var(--u)); height: calc(96 * var(--u)); }
   .contact-icon--wa.contact-icon--wa { width: calc(40 * var(--u)); height: calc(40 * var(--u)); }

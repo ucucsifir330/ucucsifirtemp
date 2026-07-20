@@ -367,8 +367,10 @@ describe("Üç Üç Sıfır landing page", () => {
     const styles = readFileSync("src/index.css", "utf8");
     expect(styles).toContain(".nav-sup { right: -4px; top: 4px; }");
     expect(styles).toContain(
-      ".nav-sup.nav-sup { font-size: calc(18 * var(--u)); right: calc(-4 * var(--u)); top: calc(4 * var(--u)); }",
+      ".nav-sup.nav-sup { font-size: calc(18 * var(--u)); }",
     );
+    expect(styles).not.toContain("right: calc(-4 * var(--u))");
+    expect(styles).not.toContain("top: calc(4 * var(--u))");
     expect(screen.queryByLabelText("Toggle navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "About" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Metrics" })).not.toBeInTheDocument();
@@ -1963,7 +1965,7 @@ it("uses the original local WebM for the hero scene", () => {
   ).toBe("/media/hero/hero-model.webm");
 });
 
-it("keeps an independent hero fallback behind video on mobile WebKit", () => {
+it("shows the independent hero fallback only on mobile and touch devices", () => {
   const { container } = render(<App />);
   const fallback = container.querySelector(
     '[data-testid="hero-model-fallback"]',
@@ -1975,7 +1977,12 @@ it("keeps an independent hero fallback behind video on mobile WebKit", () => {
   expect(fallback).toHaveClass("hero-model-fallback");
   expect(video).not.toHaveAttribute("poster");
   expect(video).toHaveClass("hero-model-source");
-  expect(readFileSync("src/index.css", "utf8")).toMatch(
+  const styles = readFileSync("src/index.css", "utf8");
+  expect(styles).toContain(".hero-model-fallback { display: none; }");
+  expect(styles).toMatch(
+    /@media \(max-width: 1023px\), \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.hero-model-fallback\s*\{[^}]*display:\s*block;/,
+  );
+  expect(styles).toMatch(
     /@media \(max-width: 1023px\), \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.hero-model-source\s*\{[^}]*display:\s*none;/,
   );
   expect(
