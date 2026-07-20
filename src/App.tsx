@@ -1107,6 +1107,7 @@ function App() {
             muted
             playsInline
             preload="auto"
+            poster={MEDIA.hero.modelPoster}
             disablePictureInPicture
             aria-hidden="true"
             className="hero-model-video pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"

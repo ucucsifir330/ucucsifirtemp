@@ -1937,6 +1937,15 @@ it("uses the original local WebM for the hero scene", () => {
   ).toBe("/media/hero/hero-model.webm");
 });
 
+it("keeps the hero character visible when mobile WebKit cannot decode WebM", () => {
+  const { container } = render(<App />);
+  expect(
+    container
+      .querySelector('[data-testid="hero-video"]')
+      ?.getAttribute("poster"),
+  ).toBe("/media/hero/hero-model-poster.png");
+});
+
 it("seeks into the first decodable hero frame so mobile Safari paints the model", () => {
   const { container } = render(<App />);
   const hero = container.querySelector(
