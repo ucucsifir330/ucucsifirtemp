@@ -40,6 +40,18 @@ export const heroVideoTime = (
   return Math.min(maxTime, targetFrame * heroFrameDuration);
 };
 
+export const heroScrollVideoTime = (
+  scrolled: number,
+  scrollable: number,
+  duration: number,
+) => {
+  if (scrollable <= 0 || !Number.isFinite(duration) || duration <= 0) return 0;
+  const progress = Math.min(1, Math.max(0, scrolled / scrollable));
+  const maxTime = Math.max(0, duration - heroFrameDuration);
+  const targetFrame = Math.round(progress * maxTime * heroVideoFps);
+  return Math.min(maxTime, targetFrame * heroFrameDuration);
+};
+
 export const shouldSeekHeroVideo = (currentTime: number, targetTime: number) =>
   Math.abs(targetTime - currentTime) >= heroFrameDuration - Number.EPSILON;
 
@@ -111,16 +123,47 @@ function ScrambleText({ text, isHovered }: { text: string; isHovered: boolean })
 
 function WhatsAppIcon() {
   return (
-    <svg aria-hidden="true" className="size-10" viewBox="0 0 640 640">
-      <path fill="rgb(255, 255, 255)" d="M476.9 161.1C435 119.1 379.2 96 319.9 96C197.5 96 97.9 195.6 97.9 318C97.9 357.1 108.1 395.3 127.5 429L96 544L213.7 513.1C246.1 530.8 282.6 540.1 319.8 540.1L319.9 540.1C442.2 540.1 544 440.5 544 318.1C544 258.8 518.8 203.1 476.9 161.1zM319.9 502.7C286.7 502.7 254.2 493.8 225.9 477L219.2 473L149.4 491.3L168 423.2L163.6 416.2C145.1 386.8 135.4 352.9 135.4 318C135.4 216.3 218.2 133.5 320 133.5C369.3 133.5 415.6 152.7 450.4 187.6C485.2 222.5 506.6 268.8 506.5 318.1C506.5 419.9 421.6 502.7 319.9 502.7zM421.1 364.5C415.6 361.7 388.3 348.3 383.2 346.5C378.1 344.6 374.4 343.7 370.7 349.3C367 354.9 356.4 367.3 353.1 371.1C349.9 374.8 346.6 375.3 341.1 372.5C308.5 356.2 287.1 343.4 265.6 306.5C259.9 296.7 271.3 297.4 281.9 276.2C283.7 272.5 282.8 269.3 281.4 266.5C280 263.7 268.9 236.4 264.3 225.3C259.8 214.5 255.2 216 251.8 215.8C248.6 215.6 244.9 215.6 241.2 215.6C237.5 215.6 231.5 217 226.4 222.5C221.3 228.1 207 241.5 207 268.8C207 296.1 226.9 322.5 229.6 326.2C232.4 329.9 268.7 385.9 324.4 410C359.6 425.2 373.4 426.5 391 423.9C401.7 422.3 423.8 410.5 428.4 397.5C433 384.5 433 373.4 431.6 371.1C430.3 368.6 426.6 367.2 421.1 364.5z" />
+    <svg
+      aria-hidden="true"
+      className="contact-icon--wa size-6 sm:size-10"
+      viewBox="0 0 24 24"
+      fill="#ffffff"
+    >
+      <path
+        d="M21.98 11.4104C21.64 5.61044 16.37 1.14045 10.3 2.14045C6.12004 2.83045 2.77005 6.22043 2.12005 10.4004C1.74005 12.8204 2.24007 15.1104 3.33007 17.0004L2.44006 20.3104C2.24006 21.0604 2.93004 21.7404 3.67004 21.5304L6.93005 20.6304C8.41005 21.5004 10.14 22.0004 11.99 22.0004C17.63 22.0004 22.31 17.0304 21.98 11.4104ZM16.8801 15.7204C16.7901 15.9004 16.68 16.0704 16.54 16.2304C16.29 16.5004 16.02 16.7004 15.72 16.8204C15.42 16.9504 15.09 17.0104 14.74 17.0104C14.23 17.0104 13.68 16.8905 13.11 16.6405C12.53 16.3905 11.9601 16.0604 11.3901 15.6504C10.8101 15.2304 10.2701 14.7604 9.75005 14.2504C9.23005 13.7304 8.77003 13.1804 8.35003 12.6104C7.94003 12.0404 7.61005 11.4704 7.37005 10.9004C7.13005 10.3304 7.01006 9.78045 7.01006 9.26045C7.01006 8.92044 7.07006 8.59044 7.19006 8.29044C7.31006 7.98044 7.50007 7.70045 7.77007 7.45045C8.09007 7.13045 8.44005 6.98045 8.81005 6.98045C8.95005 6.98045 9.09002 7.01044 9.22002 7.07044C9.35002 7.13044 9.47005 7.22044 9.56005 7.35044L10.72 8.99043C10.81 9.12043 10.88 9.23043 10.92 9.34043C10.97 9.45043 10.99 9.55043 10.99 9.65043C10.99 9.77043 10.9501 9.89045 10.8801 10.0104C10.8101 10.1304 10.72 10.2504 10.6 10.3704L10.22 10.7704C10.16 10.8304 10.1401 10.8904 10.1401 10.9704C10.1401 11.0104 10.15 11.0504 10.16 11.0904C10.18 11.1304 10.1901 11.1604 10.2001 11.1904C10.2901 11.3604 10.45 11.5704 10.67 11.8304C10.9 12.0904 11.1401 12.3604 11.4001 12.6204C11.6701 12.8904 11.9301 13.1304 12.2001 13.3604C12.4601 13.5804 12.68 13.7304 12.85 13.8204C12.88 13.8304 12.9101 13.8504 12.9401 13.8604C12.9801 13.8804 13.0201 13.8804 13.0701 13.8804C13.1601 13.8804 13.2201 13.8504 13.2801 13.7904L13.66 13.4104C13.79 13.2804 13.9101 13.1904 14.0201 13.1304C14.1401 13.0604 14.2501 13.0204 14.3801 13.0204C14.4801 13.0204 14.5801 13.0404 14.6901 13.0904C14.8001 13.1404 14.92 13.2004 15.04 13.2904L16.7001 14.4704C16.8301 14.5604 16.92 14.6704 16.98 14.7904C17.03 14.9204 17.0601 15.0404 17.0601 15.1804C17.0001 15.3504 16.9601 15.5404 16.8801 15.7204Z"
+        fill="white"
+      />
     </svg>
   );
 }
 
 function MailIcon() {
   return (
-    <svg aria-hidden="true" className="size-9" viewBox="0 0 640 640">
-      <path fill="rgb(255, 255, 255)" d="M112 128C85.5 128 64 149.5 64 176C64 191.1 71.1 205.3 83.2 214.4L291.2 370.4C308.3 383.2 331.7 383.2 348.8 370.4L556.8 214.4C568.9 205.3 576 191.1 576 176C576 149.5 554.5 128 528 128L112 128zM64 260L64 448C64 483.3 92.7 512 128 512L512 512C547.3 512 576 483.3 576 448L576 260L377.6 408.8C343.5 434.4 296.5 434.4 262.4 408.8L64 260z" />
+    <svg
+      aria-hidden="true"
+      className="contact-icon--mail size-6 sm:size-9"
+      viewBox="0 0 24 24"
+      fill="#ffffff"
+    >
+      <g clipPath="url(#mail-icon-clip)">
+        <path
+          d="M21.54 13.51C21.7261 13.3937 21.99 13.5191 21.99 13.7386V19.02C21.99 20.67 20.65 22 18.99 22H5C3.34 22 2 20.67 2 19.02V13.7432C2 13.5249 2.27189 13.3993 2.46 13.51L9.95 17.97C10.58 18.34 11.29 18.53 12 18.53C12.71 18.53 13.42 18.34 14.05 17.97L21.54 13.51Z"
+          fill="white"
+        />
+        <path
+          d="M22.0002 10.96C22.0002 10.96 22.0002 11.05 21.9902 11.09L22.0002 10.96Z"
+          fill="white"
+        />
+        <path
+          d="M20.87 8.21L13.87 2.65C12.77 1.78 11.23 1.78 10.13 2.65L3.13 8.21C2.41 8.78 2 9.63 2 10.53V10.96C2 11.65 2.37 12.3 2.97 12.65L10.46 17.11C11.41 17.67 12.59 17.67 13.54 17.11L21.03 12.65C21.59 12.32 21.95 11.73 21.99 11.09V10.53C21.99 9.63 21.58 8.78 20.87 8.21ZM14.97 10.85C15.33 11.06 15.45 11.52 15.24 11.87C15.1 12.11 14.85 12.25 14.59 12.25C14.46 12.25 14.33 12.22 14.22 12.15L12.75 11.3V13C12.75 13.41 12.41 13.75 12 13.75C11.59 13.75 11.25 13.41 11.25 13V11.3L9.78 12.15C9.66 12.22 9.53 12.25 9.41 12.25C9.15 12.25 8.9 12.12 8.76 11.87C8.55 11.51 8.68 11.05 9.03 10.85L10.5 10L9.03 9.15C8.67 8.94 8.55 8.48 8.76 8.13C8.97 7.77 9.42 7.65 9.78 7.86L11.25 8.71V7.01C11.25 6.6 11.59 6.26 12 6.26C12.41 6.26 12.75 6.6 12.75 7.01V8.71L14.22 7.86C14.58 7.65 15.04 7.78 15.24 8.13C15.45 8.49 15.32 8.95 14.97 9.15L13.5 10L14.97 10.85Z"
+          fill="white"
+        />
+      </g>
+      <defs>
+        <clipPath id="mail-icon-clip">
+          <rect width="24" height="24" fill="white" />
+        </clipPath>
+      </defs>
     </svg>
   );
 }
@@ -133,7 +176,7 @@ function Nav({ visible }: { visible: boolean }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: visible ? 1 : 0 }}
       transition={{ duration: 0.8 }}
-      className="fixed top-0 z-50 grid h-32 w-full grid-cols-12 items-center gap-x-4 px-4 sm:px-6 md:px-8"
+      className="site-nav fixed top-0 z-50 grid h-24 w-full grid-cols-12 items-center gap-x-4 px-4 sm:h-32 sm:px-6 md:px-8"
     >
       <div
         data-testid="nav-wordmark"
@@ -142,14 +185,13 @@ function Nav({ visible }: { visible: boolean }) {
         onMouseLeave={() => setWordmarkHovered(false)}
         className="col-span-6 flex items-center"
       >
-          <span className="font-galgo relative inline-block text-[64px] leading-none sm:text-[84px]">
+          <span className="font-galgo nav-brand relative inline-block text-[42px] leading-none sm:text-[84px]">
             <span data-testid="nav-wordmark-text">
               <ScrambleText text="Üç Üç Sıfır" isHovered={wordmarkHovered} />
             </span>
             <sup
               data-testid="nav-copyright"
-              className="absolute font-sans text-[13px] font-medium leading-none sm:text-[18px]"
-              style={{ right: "-12px", top: "2px" }}
+              className="nav-sup absolute font-sans text-[10px] font-medium leading-none sm:text-[18px]"
             >
               ©
             </sup>
@@ -160,25 +202,25 @@ function Nav({ visible }: { visible: boolean }) {
         aria-label="#notlikeothers"
         onMouseEnter={() => setTaglineHovered(true)}
         onMouseLeave={() => setTaglineHovered(false)}
-        className="font-galgo col-span-6 justify-self-end cursor-default text-[64px] leading-none sm:text-[84px]"
+        className="font-galgo nav-brand col-span-6 justify-self-end cursor-default text-[42px] leading-none sm:text-[84px]"
       >
         <ScrambleText text="#notlikeothers" isHovered={taglineHovered} />
       </div>
       <div
         data-testid="hero-contact-actions"
-        className="fixed right-4 top-28 z-50 flex flex-col items-end gap-3 sm:right-6 sm:top-32 md:right-8"
+        className="nav-contact fixed right-4 top-24 z-50 flex flex-col items-end gap-2 sm:right-6 sm:top-32 sm:gap-3 md:right-8"
       >
         <button
           type="button"
           aria-label="WhatsApp ile iletişime geç"
-          className="liquid-glass-button grid size-[96px] place-items-center rounded-[24px] text-white"
+          className="contact-icon-button grid size-[56px] place-items-center text-white sm:size-[96px]"
         >
           <WhatsAppIcon />
         </button>
         <button
           type="button"
           aria-label="E-posta ile iletişime geç"
-          className="liquid-glass-button grid size-[96px] place-items-center rounded-[24px] text-white"
+          className="contact-icon-button grid size-[56px] place-items-center text-white sm:size-[96px]"
         >
           <MailIcon />
         </button>
@@ -203,12 +245,12 @@ function SectionTransition({ edge }: { edge: "top" | "bottom" }) {
   );
 }
 
-function GalaxyBackground() {
+function PageAmbient() {
   return (
     <div
-      data-testid="hero-galaxy"
+      data-testid="page-ambient"
       aria-hidden="true"
-      className="galaxy-field galaxy-field--visible page-galaxy pointer-events-none fixed inset-0 z-10 overflow-hidden animate-galaxy-drift"
+      className="page-ambient pointer-events-none fixed inset-0 z-10"
     />
   );
 }
@@ -220,15 +262,17 @@ function HeroVisuals({ pointer }: { pointer: HeroPointer }) {
       aria-hidden="true"
       className="hero-visuals pointer-events-none absolute inset-0 z-[25]"
     >
-      {HERO_FLOATING_VISUALS.map((src, index) => (
-        <FloatingHeroObject
-          key={src}
-          src={src}
-          index={index + 1}
-          pointer={pointer}
-          anchor={index === 0 ? [0.94, 0.7] : [0.9, 0.82]}
-        />
-      ))}
+      <div className="model-anchor__box">
+        {HERO_FLOATING_VISUALS.map((src, index) => (
+          <FloatingHeroObject
+            key={src}
+            src={src}
+            index={index + 1}
+            pointer={pointer}
+            anchor={index === 0 ? [0.94, 0.7] : [0.9, 0.82]}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -445,6 +489,7 @@ function App() {
     }),
     [clock, setClock] = useState(() => formatClock(new Date())),
     video = useRef<HTMLVideoElement>(null),
+    heroTrack = useRef<HTMLDivElement>(null),
     heroTargetTime = useRef(0),
     heroRaf = useRef<number | null>(null),
     heroMetadataReady = useRef(false),
@@ -470,6 +515,26 @@ function App() {
   };
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+  useEffect(() => {
+    const scrubHeroFromScroll = () => {
+      const track = heroTrack.current;
+      const currentVideo = video.current;
+      if (!track || !currentVideo || !heroMetadataReady.current) return;
+      const bounds = track.getBoundingClientRect();
+      const scrollable = bounds.height - window.innerHeight;
+      // Desktop: the track collapses to the hero height, so there is
+      // nothing to scrub and the pointer keeps driving the video.
+      if (scrollable <= 0) return;
+      heroTargetTime.current = heroScrollVideoTime(
+        -bounds.top,
+        scrollable,
+        currentVideo.duration,
+      );
+      scheduleHeroSeek();
+    };
+    window.addEventListener("scroll", scrubHeroFromScroll, { passive: true });
+    return () => window.removeEventListener("scroll", scrubHeroFromScroll);
   }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => setEntered(true), 800);
@@ -508,6 +573,10 @@ function App() {
     const currentVideo = video.current;
     currentVideo?.addEventListener("loadedmetadata", showFirstVisibleHeroFrame);
     currentVideo?.addEventListener("seeked", continueHeroSeek);
+    // The cached metadata may have loaded before this effect subscribed.
+    if (currentVideo && currentVideo.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      showFirstVisibleHeroFrame();
+    }
     return () => {
       currentVideo?.removeEventListener(
         "loadedmetadata",
@@ -558,9 +627,14 @@ function App() {
         }`}
       >
       <div aria-hidden="true" className="grain-overlay" />
-      <GalaxyBackground />
+      <PageAmbient />
       <Nav visible={entered} />
        <HeroSection>
+       <div
+        ref={heroTrack}
+        data-testid="hero-scroll-track"
+        className="hero-scroll-track relative"
+       >
        <section
         data-testid="hero-stage"
         onMouseMove={moveHero}
@@ -568,7 +642,7 @@ function App() {
           lastHeroPointerX.current = null;
           setHeroPointer((pointer) => ({ ...pointer, active: false }));
         }}
-        className="relative flex h-screen h-[100dvh] flex-col overflow-hidden bg-[#07040E]/70 px-5 pb-10 pt-20 sm:px-8 sm:pb-14 sm:pt-24 lg:px-12 lg:pb-16 xl:px-16"
+        className="hero-stage relative flex h-screen h-[100dvh] flex-col overflow-hidden bg-[#07040E]/70 px-5 pb-10 pt-20 sm:px-8 sm:pb-14 sm:pt-24 lg:px-12 lg:pb-16 xl:px-16"
       >
         <div
           data-testid="hero-rim-lights"
@@ -580,16 +654,23 @@ function App() {
           aria-hidden="true"
           className="hero-wordmark-veil pointer-events-none absolute inset-0 z-[15]"
         />
-        <FloatingHeroObject
-          objectTestId="hero-cube-object"
-          objectClassName="hero-object--cube z-[15]"
-          imageClassName="hero-cube z-[15]"
-          imageTestId="hero-background-visual"
-          src={MEDIA.hero.floatingCube}
-          index={3}
-          pointer={heroPointer}
-          anchor={[0.84, 0.69]}
-        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[15] overflow-hidden"
+        >
+          <div className="model-anchor__box">
+            <FloatingHeroObject
+              objectTestId="hero-cube-object"
+              objectClassName="hero-object--cube z-[15]"
+              imageClassName="hero-cube z-[15]"
+              imageTestId="hero-background-visual"
+              src={MEDIA.hero.floatingCube}
+              index={3}
+              pointer={heroPointer}
+              anchor={[0.84, 0.69]}
+            />
+          </div>
+        </div>
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
           <video
             data-testid="hero-video"
@@ -599,7 +680,7 @@ function App() {
             preload="auto"
             disablePictureInPicture
             aria-hidden="true"
-            className="hero-model-video pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none -translate-x-1/2 object-contain object-center lg:left-[72%]"
+            className="hero-model-video pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"
           >
             <source src={MEDIA.hero.modelVideo} type='video/webm; codecs="vp9"' />
           </video>
@@ -611,7 +692,7 @@ function App() {
         />
         <HeroVisuals pointer={heroPointer} />
         <SectionTransition edge="bottom" />
-        <div data-testid="hero-wordmark" className="pointer-events-none absolute inset-x-0 top-1/2 z-[16] -translate-y-1/2 overflow-hidden">
+        <div data-testid="hero-wordmark" className="hero-wordmark pointer-events-none absolute inset-x-0 top-1/2 z-[16] -translate-y-1/2 overflow-hidden">
           <motion.div
             animate={{ x: ["0%", "-50%"] }}
             transition={{
@@ -620,7 +701,7 @@ function App() {
               repeat: Infinity,
               repeatType: "loop",
             }}
-            className="flex w-max whitespace-nowrap text-[clamp(120px,30vw,521px)] tracking-[-4px]"
+            className="hero-marquee flex w-max whitespace-nowrap text-[clamp(120px,30vw,521px)] tracking-[-4px]"
             style={{
               fontFamily: "Anton SC",
               color: "#8E7F94",
@@ -681,6 +762,7 @@ function App() {
           <span className="scroll-line" />
         </motion.div>
        </section>
+       </div>
        </HeroSection>
        <CinematicSection />
        <LogoSection>
@@ -695,7 +777,7 @@ function App() {
         />
         <SectionTransition edge="top" />
         <SectionTransition edge="bottom" />
-        <div className="relative z-20 mx-auto w-full max-w-6xl text-center">
+        <div className="logo-showcase relative z-20 mx-auto w-full max-w-6xl text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.92 }}
             whileInView={{ opacity: 1, scale: 1 }}
@@ -712,12 +794,12 @@ function App() {
         </div>
         <div
           data-testid="logo-status-bar"
-          className="absolute inset-x-0 bottom-3 z-20 grid grid-cols-[1fr_auto_1fr] items-center border-t border-[#A48FFF]/30 px-5 pt-4 text-[9px] uppercase tracking-[.24em] text-[#A48FFF]/70 sm:px-8 sm:text-[10px]"
+          className="absolute inset-x-0 bottom-3 z-20 grid grid-cols-[1fr_auto] items-center gap-x-4 border-t border-[#A48FFF]/30 px-5 py-4 text-[9px] uppercase tracking-[.24em] text-[#F0EDFA]/80 sm:grid-cols-[1fr_auto_1fr] sm:gap-x-0 sm:px-8 sm:pb-0 sm:text-[10px]"
           style={{ fontFamily: "Geist, sans-serif" }}
         >
-          <span className="justify-self-start">© 2026 TÜM HAKLARI SAKLIDIR</span>
-          <span data-testid="logo-frequency" className="justify-self-center">88.1 — 107.9 MHZ</span>
-          <span className="justify-self-end">{clock}</span>
+          <span className="col-start-1 row-start-1 justify-self-start whitespace-nowrap">© 2026 TÜM HAKLARI SAKLIDIR</span>
+          <span data-testid="logo-frequency" className="hidden justify-self-center whitespace-nowrap sm:col-start-2 sm:block">88.1 — 107.9 MHZ</span>
+          <span className="col-start-2 row-start-1 justify-self-end whitespace-nowrap sm:col-start-3">{clock}</span>
         </div>
        </section>
        </LogoSection>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 type Station = {
@@ -87,7 +87,7 @@ const CSS = `
 .st-transmit{margin-top:clamp(124px,17vh,200px);display:flex;flex-direction:column;align-items:stretch;border:1px solid var(--st-line);border-radius:var(--st-radius);overflow:hidden;background:rgba(240,237,250,.025);backdrop-filter:blur(8px);transition:border-color .4s var(--st-ease)}
 .st-transmit:focus-within{border-color:rgba(164,143,255,.5)}
 .st-tag{display:flex;align-items:center;padding:14px 18px;font-family:var(--st-mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--st-ink-faint);border-bottom:1px solid var(--st-line-soft);white-space:nowrap}
-.st-input{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--st-ink);font-family:var(--st-mono);font-size:15px;font-weight:500;letter-spacing:.03em;padding:22px 20px}
+.st-input{flex:1;min-width:0;background:none;border:0;outline:none;resize:none;color:var(--st-ink);font-family:var(--st-mono);font-size:15px;font-weight:500;line-height:1.6;letter-spacing:.03em;padding:22px 20px}
 .st-input::placeholder{color:var(--st-ink-faint)}
 .st-send{appearance:none;border:0;cursor:pointer;white-space:nowrap;background:var(--st-ink);color:#0B0918;font-family:var(--st-mono);font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:16px;transition:background .3s,letter-spacing .5s var(--st-ease)}
 .st-send:hover{background:var(--st-violet);letter-spacing:.16em}
@@ -98,10 +98,15 @@ const CSS = `
   .st-send{padding:0 clamp(22px,3vw,40px)}
 }
 @media (max-width:760px){
-  .st-needle{bottom:34px}
+  .st-root{--st-rail-offset:0px}
+  .st-kicker{transform:translate(0,-32px)}
+  .st-needle{left:var(--st-mobile-column)!important;bottom:var(--st-mobile-bottom);will-change:left,bottom;transition:left 1.05s cubic-bezier(.45,0,.2,1),bottom 1.05s cubic-bezier(.45,0,.2,1)}
   .st-stations{grid-template-columns:repeat(2,1fr);margin-top:36px}
+  .st-stations{grid-auto-rows:125px}
   .st-station{padding:14px 14px 20px;min-height:104px}
   .st-desc{font-size:9px;white-space:normal;line-height:1.5}
+  .st-transmit{margin-top:64px}
+  .st-input{min-height:118px}
 }
 @media (prefers-reduced-motion:reduce){
   .st-root *{transition:none!important}
@@ -115,6 +120,11 @@ export default function SignalTuner() {
   const rootRef = useRef<HTMLElement | null>(null);
   const pathRef = useRef<SVGPathElement | null>(null);
   const ampTargetRef = useRef(STATIONS[0].amp);
+  const activeIndex = STATIONS.indexOf(active);
+  const mobileNeedleStyle = {
+    '--st-mobile-column': activeIndex % 2 === 0 ? 'calc(25% - 2.5px)' : 'calc(75% + 2.5px)',
+    '--st-mobile-bottom': activeIndex < 2 ? '-36px' : '-171px',
+  } as CSSProperties;
 
   useEffect(() => {
     ampTargetRef.current = active.amp;
@@ -215,7 +225,7 @@ export default function SignalTuner() {
           <path ref={pathRef} fill="none" stroke="#A48FFF" strokeWidth={1.4} opacity={0.85} />
         </svg>
 
-        <div className="st-band">
+        <div className="st-band" style={mobileNeedleStyle}>
           <div className="st-rail">
             <div className="st-ticks-fine" />
             <div className="st-ticks" />
@@ -246,15 +256,15 @@ export default function SignalTuner() {
       </div>
 
       <div className="st-transmit">
-        <span className="st-tag">İletim</span>
-        <input
+        <span className="st-tag">İletişim</span>
+        <textarea
           className="st-input"
-          type="text"
-          placeholder="Talebini yaz — seni doğru ekibe yönlendirelim"
+          rows={1}
+          placeholder="İlk adımı at..."
           aria-label="Talebin"
         />
         <button className="st-send" type="button">
-          Sinyali gönder -&gt;
+          SİNYALİ GÖNDER
         </button>
       </div>
     </section>

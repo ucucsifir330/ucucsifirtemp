@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App, {
   heroVideoTime,
+  heroScrollVideoTime,
   formatClock,
   shouldSeekHeroVideo,
 } from "./App";
@@ -144,49 +145,55 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(screen.getByTestId("nav-wordmark")).not.toHaveClass("bg-white/10");
     expect(screen.queryByTestId("nav-logo")).not.toBeInTheDocument();
     expect(screen.getByTestId("nav-wordmark-text").parentElement).toHaveClass(
-      "text-[64px]",
+      "text-[42px]",
       "sm:text-[84px]",
     );
     expect(screen.getByTestId("nav-tagline")).toHaveTextContent("#notlikeothers");
     expect(screen.getByTestId("nav-tagline")).toHaveClass(
-      "text-[64px]",
+      "text-[42px]",
       "sm:text-[84px]",
     );
-    expect(screen.getByTestId("nav-copyright")).toHaveStyle({ top: "2px" });
+    expect(screen.getByTestId("nav-copyright")).toHaveClass("nav-sup");
     expect(screen.queryByLabelText("Toggle navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "About" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Metrics" })).not.toBeInTheDocument();
   });
 
-  it("places WhatsApp and email contact actions beneath #notlikeothers", () => {
+  it("shows the supplied WhatsApp mark and email mark without glass containers", () => {
     render(<App />);
 
     const contactActions = screen.getByTestId("hero-contact-actions");
-    expect(contactActions).toHaveClass("fixed", "right-4", "top-28", "z-50");
+    expect(contactActions).toHaveClass("fixed", "right-4", "top-24", "z-50");
     const whatsapp = screen.getByRole("button", { name: "WhatsApp ile iletişime geç" });
     expect(whatsapp).toBeInTheDocument();
-    expect(whatsapp).toHaveClass("size-[96px]", "rounded-[24px]");
-    expect(whatsapp).toHaveClass("liquid-glass-button");
-    expect(whatsapp.querySelector("svg path")).toHaveAttribute("fill", "rgb(255, 255, 255)");
+    expect(whatsapp).toHaveClass("contact-icon-button");
+    expect(whatsapp).not.toHaveClass("liquid-glass-button");
+    expect(whatsapp.querySelector("svg")).toHaveAttribute("viewBox", "0 0 24 24");
+    expect(whatsapp.querySelector("svg path")).toHaveAttribute(
+      "d",
+      expect.stringContaining("M21.98 11.4104"),
+    );
+    expect(whatsapp.querySelector("svg path")).toHaveAttribute("fill", "white");
     const email = screen.getByRole("button", { name: "E-posta ile iletişime geç" });
     expect(email).not.toHaveTextContent("E-POSTA");
-    expect(email).toHaveClass("size-[96px]", "rounded-[24px]");
-    expect(email).toHaveClass("liquid-glass-button");
-    expect(email.querySelector("svg path")).toHaveAttribute("fill", "rgb(255, 255, 255)");
+    expect(email).toHaveClass("contact-icon-button");
+    expect(email).not.toHaveClass("liquid-glass-button");
+    expect(email.querySelector("svg")).toHaveAttribute("viewBox", "0 0 24 24");
+    expect(email.querySelectorAll("svg path")).toHaveLength(3);
+    expect(email.querySelector("svg path")).toHaveAttribute(
+      "d",
+      expect.stringContaining("M21.54 13.51"),
+    );
+    expect(email.querySelector("svg path")).toHaveAttribute("fill", "white");
   });
 
-  it("keeps contact actions optically glassy while leaving the hero visible through them", () => {
+  it("removes every decorative surface from the contact icon buttons", () => {
     const styles = readFileSync("src/index.css", "utf8");
 
-    expect(styles).toContain(".liquid-glass-button {");
-    expect(styles).toContain("rgb(8 7 16 / .06)");
-    expect(styles).toContain("border: 1px solid rgb(255 255 255 / .42)");
-    expect(styles).toContain("backdrop-filter: blur(10px) saturate(130%)");
-    expect(styles).toContain(".liquid-glass-button::before");
-    expect(styles).toContain(".liquid-glass-button::after");
-    expect(styles).toContain(".liquid-glass-button > svg");
-    expect(styles).toContain("conic-gradient");
-    expect(styles).toContain("@media (prefers-reduced-transparency: reduce)");
+    expect(styles).toContain(".contact-icon-button {");
+    expect(styles).toContain("border: 0;");
+    expect(styles).toContain("background: transparent;");
+    expect(styles).not.toContain(".liquid-glass-button");
   });
 
   it("decrypts the Üç Üç Sıfır wordmark when hovered", () => {
@@ -220,7 +227,7 @@ describe("Üç Üç Sıfır landing page", () => {
       "/media/backgrounds/vortex-texture.png",
     );
     expect(screen.getByTestId("vortex-shader")).toHaveClass("z-0", "opacity-45");
-    expect(screen.getByRole("button", { name: /Sinyali gönder/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "SİNYALİ GÖNDER" })).toBeEnabled();
     expect(screen.queryByText(/Nereden başlayalım/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Download/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Adaptive\s*Intelligence/)).not.toBeInTheDocument();
@@ -269,7 +276,7 @@ describe("Üç Üç Sıfır landing page", () => {
     );
     expect(visual).toHaveClass("hero-cube", "z-[15]");
     const styles = readFileSync("src/index.css", "utf8");
-    expect(styles).toContain(".hero-cube {\n  top: 61%;\n  right: 9%;");
+    expect(styles).toContain(".hero-object--cube {\n  top: 61%;\n  left: 71.16%;");
   });
 
   it("makes the background cube float and react to pointer hover", () => {
@@ -341,13 +348,14 @@ describe("Üç Üç Sıfır landing page", () => {
   it("positions the ringed visual lower and slightly left in the hero", () => {
     const styles = readFileSync("src/index.css", "utf8");
 
-    expect(styles).toContain(".hero-visual--2 {\n  top: 74%;\n  right: 3%;");
+    expect(styles).toContain(".hero-object--2 {\n  top: 74%;\n  left: 83.28%;");
   });
 
   it("rotates the first hero visual 260 degrees", () => {
     const styles = readFileSync("src/index.css", "utf8");
 
-    expect(styles).toContain(".hero-visual--1 {\n  top: 62%;\n  right: 0%;\n  width: clamp(104px, 13vw, 250px);\n  transform: rotate(260deg);");
+    expect(styles).toContain(".hero-object--1 {\n  top: 62%;\n  left: 87.83%;");
+    expect(styles).toContain(".hero-visual--1 {\n  transform: rotate(260deg);");
   });
 
   it("uses the local Geist font files instead of requiring a remote font request", () => {
@@ -409,12 +417,17 @@ describe("Üç Üç Sıfır landing page", () => {
 
   it("positions the 330 logo near the top of the section", () => {
     render(<App />);
+    const styles = readFileSync("src/index.css", "utf8");
 
     expect(screen.getByTestId("logo-section")).toHaveClass(
       "items-start",
       "overflow-hidden",
     );
     expect(screen.getByTestId("metrics-logo").closest(".mt-0")).toBeInTheDocument();
+    expect(screen.getByTestId("metrics-logo").closest(".-translate-y-\\[18\\%\\]")).toBeInTheDocument();
+    expect(screen.getByTestId("metrics-logo").closest(".logo-showcase")).toBeInTheDocument();
+    expect(styles).toContain(".logo-showcase { translate: 0 -16px; }");
+    expect(styles).not.toContain("-translate-y-[24%]");
     expect(screen.getByTestId("vortex-shader")).toHaveAttribute(
       "data-focal-point",
       "0.5,0.84",
@@ -439,10 +452,34 @@ describe("Üç Üç Sıfır landing page", () => {
     const statusBar = screen.getByTestId("logo-status-bar");
     const styles = readFileSync("src/index.css", "utf8");
 
-    expect(statusBar).toHaveClass("grid", "grid-cols-[1fr_auto_1fr]");
+    expect(statusBar).toHaveClass("grid", "sm:grid-cols-[1fr_auto_1fr]");
     expect(screen.getByTestId("logo-frequency")).toHaveClass("justify-self-center");
     expect(styles).toContain("opacity: .14;");
     expect(styles).toContain("opacity: .42;");
+  });
+
+  it("uses a spacious soft-white mobile status bar without the frequency readout", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 1, 21, 7, 52));
+    render(<App />);
+
+    const statusBar = screen.getByTestId("logo-status-bar");
+    const copyright = screen.getByText("© 2026 TÜM HAKLARI SAKLIDIR");
+    const frequency = screen.getByTestId("logo-frequency");
+    const clock = screen.getByText("21:07:52");
+
+    expect(statusBar).toHaveClass(
+      "grid-cols-[1fr_auto]",
+      "gap-x-4",
+      "py-4",
+      "text-[#F0EDFA]/80",
+      "sm:grid-cols-[1fr_auto_1fr]",
+      "sm:gap-x-0",
+      "sm:pb-0",
+    );
+    expect(frequency).toHaveClass("hidden", "sm:block", "sm:col-start-2");
+    expect(copyright).toHaveClass("col-start-1", "row-start-1");
+    expect(clock).toHaveClass("col-start-2", "row-start-1", "sm:col-start-3");
   });
 
   it("replaces the neural-link label with the three-line Not Like Others heading", () => {
@@ -497,6 +534,28 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(screen.getByTestId("hero-copy")).not.toHaveClass("items-center");
   });
 
+  it("moves the complete Ritim ile Akış copy block visibly downward", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(".hero-copy { translate: 0 clamp(28px, 5vh, 52px); }");
+    expect(styles).toContain("translate: 0 clamp(128px, 16vh, 156px);");
+    expect(styles).toContain(
+      ".hero-copy.hero-copy { padding-bottom: 0; translate: 0 calc(52 * var(--u)); }",
+    );
+  });
+
+  it("enlarges the character only on mobile while keeping shoulder-object anchors fixed", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+
+    expect(styles).toContain(
+      ".hero-model-video { height: 100%; transform: translateX(-50%); transform-origin: center bottom; }",
+    );
+    expect(styles).toContain(
+      ".hero-model-video { height: clamp(34%, calc(100% - 404px), 54%); max-width: 94vw; object-position: center bottom; transform: translateX(-50%) scale(1.12); }",
+    );
+    expect(styles).not.toMatch(/\.model-anchor__box[^}]*scale\(/s);
+  });
+
   it("uses the requested hero typography scale and description treatment", () => {
     vi.useFakeTimers();
     const { container } = render(<App />);
@@ -523,6 +582,27 @@ describe("Üç Üç Sıfır landing page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Prodüksiyon/i }));
 
     expect(screen.getByText("Bağlı — 94.5 · Prodüksiyon")).toBeInTheDocument();
+  });
+
+  it("uses the requested communication call-to-action copy", () => {
+    render(<App />);
+
+    expect(screen.getByText("İletişim")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("İlk adımı at...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "SİNYALİ GÖNDER" })).toBeEnabled();
+    expect(screen.queryByText("İletim")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Talebini yaz — seni doğru ekibe yönlendirelim")).not.toBeInTheDocument();
+  });
+
+  it("expands the mobile communication field upward toward the station cards", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+    const messageField = screen.getByPlaceholderText("İlk adımı at...");
+
+    expect(messageField.tagName).toBe("TEXTAREA");
+    expect(styles).toContain(".st-transmit{margin-top:64px}");
+    expect(styles).toContain(".st-input{min-height:118px}");
+    expect(styles).toContain("resize:none");
   });
 
   it("positions the tuner below the coming-soon copy", () => {
@@ -588,7 +668,7 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(styles).toContain("--st-mono:'Geist Mono',monospace");
     expect(styles).toContain("text-transform:uppercase");
     expect(styles).toContain("letter-spacing:.12em");
-    expect(screen.getByRole("button", { name: /Sinyali gönder ->/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "SİNYALİ GÖNDER" })).toBeEnabled();
   });
 
   it("connects the active station card to the tuner rail", () => {
@@ -608,11 +688,51 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(styles).toContain(".st-ticks,.st-ticks-fine{position:absolute;inset:0;background-repeat:no-repeat;transform:translateY(var(--st-rail-offset))}");
     expect(styles).toContain("border-radius:var(--st-radius)");
     expect(styles).not.toContain(".st-tag{display:flex;align-items:center;padding:14px 18px;border-radius:");
-    expect(styles).toContain(".st-needle{bottom:34px}");
+    expect(styles).toContain("--st-rail-offset:0px");
     expect(styles).toContain(".st-stations{grid-template-columns:repeat(2,1fr);margin-top:36px}");
     expect(styles).toContain(".st-station.is-active::before{opacity:1;transform:scale(1)}");
-    expect(styles).toContain("@media (max-width:760px){\n  .st-needle{bottom:34px}");
+    expect(styles).toContain("@media (max-width:760px){\n  .st-root{--st-rail-offset:0px}");
     expect(needle).toHaveStyle({ left: "12.5%" });
+  });
+
+  it("aligns the mobile tuner needle with both rows of the two-column station grid", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+    const band = container.querySelector(".st-band") as HTMLElement;
+
+    expect(styles).toContain(
+      ".st-needle{left:var(--st-mobile-column)!important;bottom:var(--st-mobile-bottom);",
+    );
+    expect(styles).toContain("grid-auto-rows:125px");
+    expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(25% - 2.5px)");
+    expect(band.style.getPropertyValue("--st-mobile-bottom")).toBe("-36px");
+
+    fireEvent.click(screen.getByRole("button", { name: /Büyüme/i }));
+
+    expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(25% - 2.5px)");
+    expect(band.style.getPropertyValue("--st-mobile-bottom")).toBe("-171px");
+
+    fireEvent.click(screen.getByRole("button", { name: /Diğer/i }));
+
+    expect(band.style.getPropertyValue("--st-mobile-column")).toBe("calc(75% + 2.5px)");
+    expect(band.style.getPropertyValue("--st-mobile-bottom")).toBe("-171px");
+  });
+
+  it("moves the mobile signal indicator inward from the clipped left edge", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+
+    expect(styles).toContain(".st-kicker{transform:translate(0,-32px)}");
+  });
+
+  it("glides the mobile tuner needle between stations instead of snapping", () => {
+    const { container } = render(<App />);
+    const styles = container.querySelector(".st-root > style")?.textContent;
+
+    expect(styles).toContain(
+      "transition:left 1.05s cubic-bezier(.45,0,.2,1),bottom 1.05s cubic-bezier(.45,0,.2,1)",
+    );
+    expect(styles).toContain("will-change:left,bottom");
   });
 
   it("renders an uncropped, non-autoplay hero video with the background wordmark", () => {
@@ -709,42 +829,34 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(globe).toHaveClass("opacity-[.68]", "brightness-125");
   });
 
-  it("keeps the animated galaxy behind all page content", () => {
+  it("removes the animated star field from the page and stylesheet", () => {
     const { container } = render(<App />);
     const styles = readFileSync("src/index.css", "utf8");
-    const galaxy = container.querySelector('[data-testid="hero-galaxy"]');
-    const wordmark = container.querySelector('[data-testid="hero-wordmark"]');
-    const model = container.querySelector('[data-testid="hero-video"]');
 
-    expect(galaxy).toBeInTheDocument();
-    expect(galaxy).toHaveClass("z-10");
-    expect(galaxy).toHaveClass("fixed");
-    expect(galaxy).toHaveClass("page-galaxy");
-    expect(galaxy).toHaveClass("animate-galaxy-drift");
-    expect(styles).toContain(
-      ".page-galaxy {\n  background:\n    radial-gradient",
-    );
-    expect(styles).toContain("animation: galaxy-drift-near");
-    expect(styles).toContain("translate3d(");
-    expect(wordmark).toHaveClass("z-[16]");
-    expect(model?.parentElement).toHaveClass("z-20");
+    expect(container.querySelector('[data-testid="hero-galaxy"]')).not.toBeInTheDocument();
+    expect(styles).not.toContain(".galaxy-field");
+    expect(styles).not.toContain(".page-galaxy");
+    expect(styles).not.toContain("galaxy-drift");
+  });
+
+  it("keeps the static purple and blue ambient light across the page", () => {
+    const { container } = render(<App />);
+    const styles = readFileSync("src/index.css", "utf8");
+    const ambient = container.querySelector('[data-testid="page-ambient"]');
+
+    expect(ambient).toHaveClass("page-ambient", "fixed", "inset-0");
+    expect(ambient).not.toHaveClass("animate-galaxy-drift");
+    expect(styles).toContain(".page-ambient {");
+    expect(styles).toContain("rgba(75, 41, 104, .30)");
+    expect(styles).toContain("rgba(31, 58, 113, .24)");
+    expect(styles).not.toContain(".page-ambient::before");
+    expect(styles).not.toContain(".page-ambient::after");
   });
 
   it("positions the scroll indicator slightly lower in the hero", () => {
     render(<App />);
 
     expect(screen.getByText("Scroll").parentElement).toHaveClass("bottom-5");
-  });
-
-  it("keeps the star field visibly layered over the page backdrop", () => {
-    const { container } = render(<App />);
-    const styles = readFileSync("src/index.css", "utf8");
-
-    expect(container.querySelector('[data-testid="hero-galaxy"]')).toHaveClass(
-      "galaxy-field--visible",
-    );
-    expect(styles).toContain(".galaxy-field--visible::before");
-    expect(styles).toContain(".galaxy-field--visible::after");
   });
 
   it("adds red and violet rim lights behind the hero model", () => {
@@ -773,13 +885,96 @@ describe("Üç Üç Sıfır landing page", () => {
     expect(existsSync("public/shuriken-cutout.png")).toBe(false);
   });
 
-  it("extends the star field across the complete page", () => {
+  it("keeps section transitions across the complete page", () => {
     const { container } = render(<App />);
 
-    expect(container.querySelector('[data-testid="hero-galaxy"]')).toHaveClass("fixed");
     expect(
       container.querySelectorAll('[data-testid="section-transition"]'),
     ).toHaveLength(5);
+  });
+});
+
+describe("hero scroll scrubbing", () => {
+  it("maps scroll progress onto the video timeline and clamps both ends", () => {
+    const maxTime = 20 - 1 / 30;
+    expect(heroScrollVideoTime(0, 1000, 20)).toBe(0);
+    expect(heroScrollVideoTime(-200, 1000, 20)).toBe(0);
+    expect(heroScrollVideoTime(1000, 1000, 20)).toBeCloseTo(maxTime);
+    expect(heroScrollVideoTime(1500, 1000, 20)).toBeCloseTo(maxTime);
+    expect(heroScrollVideoTime(500, 1000, 20)).toBeCloseTo(
+      Math.round(0.5 * maxTime * 30) / 30,
+    );
+    expect(heroScrollVideoTime(500, 0, 20)).toBe(0);
+    expect(heroScrollVideoTime(500, 1000, Number.NaN)).toBe(0);
+  });
+
+  it("pins the hero on a mobile scroll track that drives the character video", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain(".hero-scroll-track { height: 260dvh; }");
+    expect(styles).toContain(
+      ".hero-scroll-track .hero-stage { position: sticky; top: 0; }",
+    );
+    // overflow-x: hidden on body would turn it into a scroll container and
+    // silently break the sticky pinning; clip does not.
+    expect(styles).toContain("overflow-x: clip");
+    expect(styles).not.toContain("overflow-x: hidden");
+  });
+
+  it("pins the character to the screen bottom with the marquee flowing behind it", () => {
+    const styles = readFileSync("src/index.css", "utf8");
+    expect(styles).toContain("object-position: center bottom;");
+    expect(styles).toContain(
+      ".hero-wordmark { top: auto; bottom: 12%; transform: none; }",
+    );
+    expect(styles).toContain("overscroll-behavior-y: none");
+
+    const { container } = render(<App />);
+    expect(
+      container.querySelector('[data-testid="hero-wordmark"]'),
+    ).toHaveClass("hero-wordmark");
+  });
+
+  it("scrubs forward while scrolling down and rewinds while scrolling back up", () => {
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+    const flushAnimationFrames = () => {
+      for (const callback of rafQueue.splice(0)) callback(0);
+    };
+
+    const { container } = render(<App />);
+    const hero = container.querySelector(
+      '[data-testid="hero-video"]',
+    ) as HTMLVideoElement;
+    const track = container.querySelector(
+      '[data-testid="hero-scroll-track"]',
+    ) as HTMLDivElement;
+    expect(track).toContainElement(
+      container.querySelector('[data-testid="hero-stage"]') as HTMLElement,
+    );
+
+    Object.defineProperty(hero, "duration", { configurable: true, value: 4 });
+    fireEvent.loadedMetadata(hero);
+
+    let trackTop = 0;
+    const trackHeight = window.innerHeight + 1000;
+    vi.spyOn(track, "getBoundingClientRect").mockImplementation(
+      () => ({ top: trackTop, height: trackHeight }) as DOMRect,
+    );
+
+    trackTop = -500;
+    fireEvent.scroll(window);
+    flushAnimationFrames();
+    expect(hero.currentTime).toBeCloseTo(heroScrollVideoTime(500, 1000, 4));
+    fireEvent.seeked(hero);
+    flushAnimationFrames();
+
+    trackTop = -250;
+    fireEvent.scroll(window);
+    flushAnimationFrames();
+    expect(hero.currentTime).toBeCloseTo(heroScrollVideoTime(250, 1000, 4));
   });
 });
 

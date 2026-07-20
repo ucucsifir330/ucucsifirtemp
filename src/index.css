@@ -41,9 +41,13 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { --font-sans: "Space Mono", monospace; --font-serif: "Space Mono", monospace; --font-mono: "Space Mono", monospace; --accent: #A48FFF; }
+/* --u: one reference pixel of the 2716 x 1183 master composition. Width-driven
+   on ratios narrower than the reference (16:9, 16:10...), height-driven on
+   wider ones (21:9+), so the composition never compresses vertically. */
+:root { --font-sans: "Space Mono", monospace; --font-serif: "Space Mono", monospace; --font-mono: "Space Mono", monospace; --accent: #A48FFF; --u: min(calc(100vw / 2716), calc(100vh / 1183)); }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { background: #07040E; color: #fff; overflow-x: hidden; overflow-y: auto; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+/* overflow-x: clip (not hidden) — hidden would make body a scroll container and break position: sticky inside it (the mobile hero scroll-scrub relies on it). */
+html, body { background: #07040E; color: #fff; overflow-x: clip; overscroll-behavior-y: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 ::selection { background: rgba(164, 143, 255, .35); color: #fff; }
 :focus-visible { outline: 1px solid rgba(164, 143, 255, .7); outline-offset: 3px; }
 
@@ -107,176 +111,39 @@ html body [class] {
 @media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
   .custom-cursor { display: none; }
 }
+.nav-sup { right: -12px; top: 2px; }
+
 .font-galgo {
   font-family: 'Galgo', sans-serif;
   font-weight: 200;
   letter-spacing: .025em;
 }
 
-/* Web approximation of Liquid Glass: an optical surface, refracted highlight, and chrome rim. */
-.liquid-glass-button {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / .42);
-  background-color: rgb(8 7 16 / .06);
-  background-image:
-    linear-gradient(145deg, rgb(255 255 255 / .16) 0%, rgb(255 255 255 / .04) 28%, transparent 62%, rgb(190 174 255 / .05) 100%);
-  background-clip: padding-box;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .34),
-    inset 0 -1px 1px rgb(7 5 16 / .24),
-    0 12px 26px rgb(0 0 0 / .22),
-    0 2px 8px rgb(163 138 255 / .06);
-  backdrop-filter: blur(10px) saturate(130%);
-  -webkit-backdrop-filter: blur(10px) saturate(130%);
-  transition: transform 280ms cubic-bezier(.16, 1, .3, 1), box-shadow 280ms ease, filter 280ms ease;
+.contact-icon-button {
+  border: 0;
+  background: transparent;
+  transition: opacity 220ms ease, transform 220ms cubic-bezier(.16, 1, .3, 1);
 }
 
-.liquid-glass-button::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    radial-gradient(ellipse 66% 30% at 28% 0%, rgb(255 255 255 / .38), rgb(255 255 255 / .08) 52%, transparent 74%),
-    linear-gradient(118deg, rgb(255 255 255 / .08), transparent 30%, transparent 70%, rgb(192 174 255 / .07));
-  filter: blur(1px);
+.contact-icon-button:hover {
   opacity: .72;
-  transform: translate3d(-3%, -2%, 0);
-  transition: opacity 280ms ease, transform 560ms cubic-bezier(.16, 1, .3, 1);
+  transform: scale(1.08);
 }
 
-.liquid-glass-button::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  inset: 1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(from 210deg at 50% 50%, transparent 0deg, rgb(255 255 255 / .24) 52deg, transparent 104deg, rgb(211 195 255 / .22) 208deg, transparent 276deg, rgb(255 255 255 / .28) 332deg, transparent 360deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: .64;
-  pointer-events: none;
-  transition: opacity 280ms ease, transform 560ms cubic-bezier(.16, 1, .3, 1);
+.contact-icon-button:active {
+  transform: scale(.96);
 }
 
-.liquid-glass-button > svg {
-  position: relative;
-  z-index: 2;
-  filter: drop-shadow(0 2px 3px rgb(0 0 0 / .34));
-  transition: transform 280ms cubic-bezier(.16, 1, .3, 1), filter 280ms ease;
-}
-
-.liquid-glass-button:hover {
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .5),
-    inset 0 -1px 1px rgb(7 5 16 / .2),
-    0 18px 34px rgb(0 0 0 / .28),
-    0 5px 16px rgb(163 138 255 / .16);
-  background-color: rgb(8 7 16 / .1);
-  filter: brightness(1.08);
-  transform: translateY(-3px) scale(1.025);
-}
-
-.liquid-glass-button:hover::before {
-  opacity: 1;
-  transform: translate3d(8%, -4%, 0) scale(1.04);
-}
-
-.liquid-glass-button:hover::after {
-  opacity: 1;
-  transform: rotate(16deg) scale(1.03);
-}
-
-.liquid-glass-button:hover > svg {
-  filter: drop-shadow(0 3px 5px rgb(0 0 0 / .42));
-  transform: scale(1.06);
-}
-
-.liquid-glass-button:active {
-  transform: translateY(1px) scale(.985);
-}
-
-.liquid-glass-button:focus-visible {
+.contact-icon-button:focus-visible {
   outline: 2px solid rgb(225 218 255 / .88);
   outline-offset: 4px;
 }
-
-@media (prefers-reduced-transparency: reduce) {
-  .liquid-glass-button {
-    background: #252034;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
 .lenis.lenis-smooth { scroll-behavior: auto; }.lenis.lenis-stopped { overflow: hidden; }.lenis.lenis-scrolling iframe { pointer-events: none; }
 
-.galaxy-field {
-  background:
-    radial-gradient(ellipse at 50% 45%, rgba(75, 41, 104, .26), transparent 46%),
-    radial-gradient(ellipse at 75% 12%, rgba(31, 58, 113, .20), transparent 36%),
-    #030207;
-}
-
-.page-galaxy {
+.page-ambient {
   background:
     radial-gradient(ellipse at 50% 45%, rgba(75, 41, 104, .30), transparent 48%),
     radial-gradient(ellipse at 75% 12%, rgba(31, 58, 113, .24), transparent 38%);
-}
-
-.galaxy-field::before,
-.galaxy-field::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 1px;
-  height: 1px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: -42vw -4vh #fff, 25vw -41vh #fff, -20vw 49vh #fff, 5vw 40vh #fff,
-    29vw 19vh #fff, -44vw -13vh #fff, 46vw 41vh #fff, -3vw -45vh #fff,
-    47vw 35vh #fff, 12vw -8vh #fff, -34vw 48vh #fff, 32vw 26vh #fff,
-    32vw -41vh #fff, 0 37vh #fff, 34vw -26vh #fff, -14vw -49vh #fff,
-    -12vw 45vh #fff, -44vw -33vh #fff, -13vw 41vh #fff, -36vw -11vh #fff,
-    -23vw -24vh #fff, -38vw -27vh #fff, 16vw -19vh #fff, 28vw 33vh #fff,
-    -49vw -4vh #fff, 16vw 32vh #fff, 36vw -18vh #fff, -25vw -30vh #fff,
-    -23vw 24vh #fff, -2vw -35vh #fff, -25vw 9vh #fff, -15vw -34vh #fff,
-    -8vw -19vh #fff, -20vw -20vh #fff, 42vw 50vh #fff, -32vw 10vh #fff,
-    -23vw -17vh #fff, 44vw 15vh #fff, -40vw 33vh #fff, -43vw 8vh #fff,
-    -48vw -15vh #fff, -24vw 17vh #fff, -31vw 50vh #fff, 36vw -38vh #fff,
-    -7vw 48vh #fff, 15vw -32vh #fff, 2vw 37vh #fff, 7vw -40vh #fff,
-    15vw 18vh #fff, 25vw -13vh #fff, -46vw -12vh #fff, -18vw 22vh #fff,
-    23vw -9vh #fff, 50vw 12vh #fff, 45vw 2vh #fff, 14vw -48vh #fff,
-    23vw 43vh #fff, -40vw 16vh #fff, 20vw -31vh #fff, -17vw 44vh #fff,
-    18vw -45vh #fff, 33vw -6vh #fff, 0 7vh #fff, -10vw -18vh #fff,
-    -19vw 5vh #fff, 1vw 42vh #fff, 22vw 48vh #fff, 39vw -8vh #fff,
-    -6vw -42vh #fff, -47vw 34vh #fff, -46vw 19vh #fff, -12vw -32vh #fff,
-    -45vw -38vh #fff, -28vw 18vh #fff, -38vw -46vh #fff, 49vw -6vh #fff,
-    10vw -24vh #fff, -5vw -11vh #fff, 33vw -8vh #fff, -16vw 17vh #fff,
-    18vw 27vh #fff, -8vw -10vh #fff;
-}
-
-.galaxy-field::after {
-  width: 2px;
-  height: 2px;
-  opacity: .68;
-  filter: blur(.2px);
-  transform: translate(11vw, -7vh) scale(1.25);
-}
-
-.galaxy-field--visible::before {
-  opacity: .9;
-  filter: drop-shadow(0 0 2px rgba(205, 193, 255, .78));
-}
-
-.galaxy-field--visible::after {
-  opacity: .9;
-  filter: drop-shadow(0 0 3px rgba(164, 143, 255, .88));
 }
 
 .hero-rim-lights--cinematic {
@@ -324,9 +191,6 @@ html body [class] {
   width: clamp(140px, 23vw, 380px);
 }
 
-.animate-galaxy-drift::before { animation: galaxy-drift-near 18s ease-in-out alternate infinite; }
-.animate-galaxy-drift::after { animation: galaxy-drift-far 26s ease-in-out alternate infinite; }
-
 .hero-model-fade--subtle {
   height: clamp(72px, 14vh, 160px);
   background: linear-gradient(
@@ -343,6 +207,26 @@ html body [class] {
 }
 
 .hero-visuals { overflow: hidden; }
+
+/*
+ * Mirrors the hero video's geometry (bottom-anchored, centered at the same
+ * horizontal focal point, same aspect ratio as hero-model.webm 2433x2151).
+ * Objects placed inside are anchored to the model itself, so they hold their
+ * position on the character (e.g. covering the shoulder watermark) at every
+ * viewport size.
+ */
+.model-anchor__box {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  height: 100%;
+  aspect-ratio: 2433 / 2151;
+  transform: translateX(-50%);
+}
+
+@media (min-width: 1024px) {
+  .model-anchor__box { left: 72%; }
+}
 
 .hero-object {
   position: absolute;
@@ -377,63 +261,56 @@ html body [class] {
   filter: drop-shadow(0 24px 44px rgb(118 56 255 / .72));
 }
 
+/* Object placement is expressed in model-box coordinates (percentages of the
+   anchored video frame), calibrated against the 2716 x 1183 reference. */
 .hero-object--1 {
   top: 62%;
-  right: 0%;
-  width: clamp(104px, 13vw, 250px);
+  left: 87.83%;
+  width: 18.68%;
 }
 
 .hero-object--2 {
   top: 74%;
-  right: 3%;
-  width: clamp(96px, 12vw, 230px);
+  left: 83.28%;
+  width: 17.19%;
 }
 
 .hero-object--cube {
   top: 61%;
-  right: 9%;
-  width: clamp(96px, 12vw, 230px);
+  left: 71.16%;
+  width: 17.19%;
 }
 
 .hero-visual {
   display: block;
-  width: clamp(92px, 12vw, 220px);
+  width: 100%;
   height: auto;
 }
 
 .hero-visual--1 {
-  top: 62%;
-  right: 0%;
-  width: clamp(104px, 13vw, 250px);
   transform: rotate(260deg);
 }
 
 .hero-visual--2 {
-  top: 74%;
-  right: 3%;
-  width: clamp(96px, 12vw, 230px);
   transform: rotate(12deg);
 }
 
 .hero-visual--3 {
-  top: 17%;
-  right: 20%;
-  width: clamp(76px, 9vw, 174px);
   transform: rotate(10deg);
 }
 
 .hero-cube {
-  top: 61%;
-  right: 9%;
-  width: clamp(96px, 12vw, 230px);
   transform: rotate(12deg);
 }
 
-/* The 2560 x 1440 hero is the desktop reference composition. */
-.hero-model-video { height: 100%; }
+/* Keep the reference character scale outside the mobile composition. */
+.hero-model-video { height: 100%; transform: translateX(-50%); transform-origin: center bottom; }
+
+.hero-copy { translate: 0 clamp(28px, 5vh, 52px); }
 
 @media (min-width: 768px) and (max-width: 1279px) {
   .hero-model-video { height: 78%; }
+  .model-anchor__box { height: 78%; }
   .hero-copy { padding-bottom: clamp(1rem, 3vh, 2.5rem); }
   .hero-primary-heading { font-size: clamp(48px, 7vw, 74px); }
   .hero-primary-heading > span { font-size: clamp(56px, 8vw, 82px); }
@@ -442,23 +319,40 @@ html body [class] {
 }
 
 @media (max-width: 767px) {
-  .hero-model-video { height: 60%; max-width: 94vw; }
-  .hero-object--1 { top: 56%; right: -1%; width: clamp(72px, 20vw, 120px); }
-  .hero-object--2 { top: 68%; right: 2%; width: clamp(72px, 19vw, 112px); }
-  .hero-object--cube { top: 55%; right: 8%; width: clamp(72px, 19vw, 112px); }
-  .hero-visual--1 { top: 56%; right: -1%; width: clamp(72px, 20vw, 120px); }
-  .hero-visual--2 { top: 68%; right: 2%; width: clamp(72px, 19vw, 112px); }
-  .hero-visual--3 { top: 18%; right: 5%; width: clamp(56px, 15vw, 88px); }
-  .hero-cube { top: 55%; right: 8%; width: clamp(72px, 19vw, 112px); }
-  .hero-copy { padding-bottom: 1.25rem; }
-  .hero-primary-heading { font-size: clamp(42px, 11vw, 58px); }
-  .hero-primary-heading > span { font-size: clamp(48px, 12vw, 64px); }
+  /*
+   * Scroll scrub: the hero pins while the 260dvh track scrolls past, and
+   * the scroll progress drives the character video the way the pointer
+   * does on desktop. Scrolling back rewinds it.
+   */
+  .hero-scroll-track { height: 260dvh; }
+  .hero-scroll-track .hero-stage { position: sticky; top: 0; }
+  /*
+   * Mobile composition: the copy moves to the top of the stage and the
+   * character keeps the bottom edge. The video height is whatever the
+   * copy leaves free (100% - ~384px of nav + copy), clamped so the
+   * character never collapses below 38% or balloons past 54%.
+   */
+  /*
+   * max-width: 94vw letterboxes the video inside its box, so the character
+   * must be pinned to the box bottom (not centered) to touch the screen
+   * edge. The anchor box mirrors the letterboxed content height:
+   * min(box height, 94vw * 2151 / 2433).
+   */
+  .hero-model-video { height: clamp(34%, calc(100% - 404px), 54%); max-width: 94vw; object-position: center bottom; transform: translateX(-50%) scale(1.12); }
+  .model-anchor__box { height: min(clamp(34%, calc(100% - 404px), 54%), 83.11vw); }
+  /* The Clavis Futuri band flows behind the character, not mid-screen. */
+  .hero-wordmark { top: auto; bottom: 12%; transform: none; }
+  .hero-copy { justify-content: flex-start; padding-top: 2rem; padding-bottom: 0; translate: 0 clamp(128px, 16vh, 156px); }
+  .logo-showcase { translate: 0 -16px; }
+  .hero-primary-heading { white-space: normal; font-size: clamp(44px, 13vw, 58px); }
+  .hero-primary-heading > span { font-size: clamp(48px, 14vw, 64px); }
   .hero-secondary-heading { font-size: clamp(38px, 10vw, 52px); }
-  .hero-description { max-width: 18rem; font-size: 12px; }
+  .hero-description { max-width: 17rem; font-size: 13px; }
 }
 
 @media (min-width: 768px) and (max-aspect-ratio: 4/5) {
   .hero-model-video { height: 60%; max-width: 94vw; }
+  .model-anchor__box { height: 60%; }
   .hero-copy { padding-bottom: 1.5rem; }
   .hero-copy-layout { flex-direction: column; align-items: stretch; gap: 1.5rem; }
   .hero-primary-heading { font-size: clamp(42px, 7vw, 58px); }
@@ -467,20 +361,49 @@ html body [class] {
   .hero-description { max-width: 18rem; font-size: 12px; }
 }
 
+/*
+ * Fluid desktop scaling: the 2716 x 1183 viewport is the reference composition.
+ * --u is one reference pixel; at 2716px wide the layout is pixel-identical to
+ * the reference, and every other landscape width renders the same composition
+ * proportionally scaled. Vertical/portrait formats keep the blocks above.
+ */
+@media (min-width: 1024px) and (orientation: landscape) {
+  .site-nav.site-nav { height: calc(128 * var(--u)); padding-inline: calc(32 * var(--u)); }
+  .nav-brand.nav-brand { font-size: calc(84 * var(--u)); }
+  .nav-sup.nav-sup { font-size: calc(18 * var(--u)); right: calc(-12 * var(--u)); top: calc(2 * var(--u)); }
+  .nav-contact.nav-contact { right: calc(32 * var(--u)); top: calc(128 * var(--u)); gap: calc(12 * var(--u)); }
+  .contact-icon-button.contact-icon-button { width: calc(96 * var(--u)); height: calc(96 * var(--u)); }
+  .contact-icon--wa.contact-icon--wa { width: calc(40 * var(--u)); height: calc(40 * var(--u)); }
+  .contact-icon--mail.contact-icon--mail { width: calc(36 * var(--u)); height: calc(36 * var(--u)); }
+  .hero-stage.hero-stage { padding-inline: calc(64 * var(--u)); padding-top: calc(96 * var(--u)); padding-bottom: calc(64 * var(--u)); }
+  .hero-marquee.hero-marquee { font-size: calc(521 * var(--u)); letter-spacing: calc(-4 * var(--u)); }
+  /*
+   * The copy block must never reach the character. The model's visible left
+   * edge sits ~10% inside the video box, which resolves to 72vw - 45.244vh
+   * (video: centered at 72%, height 100vh, aspect 2433/2151). --copy-max is
+   * that edge minus a breathing gap (5vw) and the stage's left padding; the
+   * headline is a single non-wrapping line with a fixed width/font-size
+   * ratio of 7.445 ("Ritim ile Akış" in PP Neue Machina at -0.02em), so
+   * capping the font at --copy-max / 7.445 caps the line's right edge.
+   */
+  .hero-stage { --copy-max: calc(72vw - 45.244vh - 5vw - 64 * var(--u)); }
+  .hero-primary-heading.hero-primary-heading {
+    font-size: max(36px, min(calc(160 * var(--u)), calc(var(--copy-max) / 7.445)));
+  }
+  .hero-description.hero-description {
+    font-size: max(12px, calc(16 * var(--u)));
+    max-width: min(calc(960 * var(--u)), var(--copy-max));
+    padding-left: calc(20 * var(--u));
+  }
+  .hero-copy.hero-copy { padding-bottom: 0; translate: 0 calc(52 * var(--u)); }
+  .hero-model-video { height: 100%; }
+  .model-anchor__box { height: 100%; }
+}
+
 .hero-wordmark-veil {
   background:
     radial-gradient(ellipse 38% 42% at 50% 48%, transparent 0%, rgba(7, 4, 14, .08) 50%, rgba(7, 4, 14, .34) 78%, rgba(7, 4, 14, .58) 100%),
     linear-gradient(to bottom, rgba(7, 4, 14, .16) 0%, transparent 30%, transparent 55%, rgba(7, 4, 14, .52) 100%);
-}
-
-@keyframes galaxy-drift-near {
-  from { transform: translate3d(-2vw, 1vh, 0) scale(1); opacity: .62; }
-  to { transform: translate3d(2vw, -1vh, 0) scale(1.32); opacity: .9; }
-}
-
-@keyframes galaxy-drift-far {
-  from { transform: translate3d(8vw, -5vh, 0) scale(1.22); opacity: .52; }
-  to { transform: translate3d(14vw, -9vh, 0) scale(1.58); opacity: .8; }
 }
 
 @keyframes rim-light-red {
@@ -704,8 +627,6 @@ html body [class] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-galaxy-drift::before,
-  .animate-galaxy-drift::after,
   .hero-rim-lights::before,
   .hero-rim-lights::after,
   .pulse-dot::after,
