@@ -1424,6 +1424,11 @@ describe("hero scroll scrubbing", () => {
     render(<App />);
     const shell = screen.getByTestId("site-shell");
     const track = screen.getByTestId("hero-scroll-track");
+    const fallback = screen.getByTestId("hero-model-fallback");
+    expect(fallback).toHaveAttribute(
+      "src",
+      "/media/hero/frames/hero-model-001.webp",
+    );
     let trackTop = 0;
     vi.spyOn(track, "getBoundingClientRect").mockImplementation(
       () =>
@@ -1441,16 +1446,28 @@ describe("hero scroll scrubbing", () => {
     fireEvent.scroll(window);
     expect(Number(shell.style.getPropertyValue("--mobile-nav-exit"))).toBeGreaterThan(0);
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
+    expect(fallback).toHaveAttribute(
+      "src",
+      "/media/hero/frames/hero-model-016.webp",
+    );
 
     trackTop = -800;
     fireEvent.scroll(window);
     expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("1");
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("1");
+    expect(fallback).toHaveAttribute(
+      "src",
+      "/media/hero/frames/hero-model-039.webp",
+    );
 
     trackTop = 0;
     fireEvent.scroll(window);
     expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("0");
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
+    expect(fallback).toHaveAttribute(
+      "src",
+      "/media/hero/frames/hero-model-001.webp",
+    );
   });
 
   it("drives the same navigation exit and copy reveal choreography on tablets", () => {
@@ -1942,13 +1959,19 @@ it("keeps an independent hero fallback behind video on mobile WebKit", () => {
   const fallback = container.querySelector(
     '[data-testid="hero-model-fallback"]',
   );
+  const video = container.querySelector('[data-testid="hero-video"]');
   expect(
     fallback?.getAttribute("src"),
-  ).toBe("/media/hero/hero-model-poster.png");
+  ).toBe("/media/hero/frames/hero-model-001.webp");
   expect(fallback).toHaveClass("hero-model-fallback");
+  expect(video).not.toHaveAttribute("poster");
+  expect(video).toHaveClass("hero-model-source");
+  expect(readFileSync("src/index.css", "utf8")).toMatch(
+    /@media \(max-width: 1023px\), \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.hero-model-source\s*\{[^}]*display:\s*none;/,
+  );
   expect(
-    container.querySelector('[data-testid="hero-video"]'),
-  ).not.toHaveAttribute("poster");
+    existsSync("public/media/hero/frames/hero-model-061.webp"),
+  ).toBe(true);
 });
 
 it("seeks into the first decodable hero frame so mobile Safari paints the model", () => {

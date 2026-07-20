@@ -12,6 +12,7 @@ const chars =
 const random = () => chars[Math.floor(Math.random() * chars.length)];
 const heroVideoFps = 30;
 const heroFrameDuration = 1 / heroVideoFps;
+const heroMobileFrameCount = 61;
 const clavisBandDuration = 52;
 const heroDesktopPointerQuery =
   "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
@@ -76,6 +77,24 @@ export const heroScrollScrubDistance = (
     0,
     trackHeight - viewportHeight * (reservesPanelReveal ? 2 : 1),
   );
+
+export const heroScrollFrameIndex = (
+  scrolled: number,
+  scrollable: number,
+  frameCount = heroMobileFrameCount,
+) => {
+  if (scrollable <= 0 || frameCount <= 1 || !Number.isFinite(scrolled)) return 0;
+  const progress = Math.min(1, Math.max(0, scrolled / scrollable));
+  return Math.round(progress * (frameCount - 1));
+};
+
+export const heroMobileFrameSrc = (frameIndex: number) => {
+  const safeFrame = Math.min(
+    heroMobileFrameCount - 1,
+    Math.max(0, Math.round(frameIndex)),
+  );
+  return `/media/hero/frames/hero-model-${String(safeFrame + 1).padStart(3, "0")}.webp`;
+};
 
 export const stackPanelStickyTop = (
   panelHeight: number,
@@ -689,6 +708,7 @@ function App() {
     soundtrack = useRef<HTMLAudioElement>(null),
     soundEnabledRef = useRef(false),
     video = useRef<HTMLVideoElement>(null),
+    heroFallback = useRef<HTMLImageElement>(null),
     heroTrack = useRef<HTMLDivElement>(null),
     logoPanel = useRef<HTMLElement>(null),
     clavisMarquee = useRef<HTMLDivElement>(null),
@@ -697,6 +717,7 @@ function App() {
     heroRaf = useRef<number | null>(null),
     heroMetadataReady = useRef(false),
     heroSeeking = useRef(false),
+    lastMobileFrame = useRef(0),
     lastHeroPointerX = useRef<number | null>(null);
   const audioGateReady = loadingPhase === "lift" || loadingPhase === "complete";
   const toggleSound = () => {
@@ -808,6 +829,21 @@ function App() {
     return () => resizeObserver.disconnect();
   }, []);
   useEffect(() => {
+    const usesTouchFrames = window.matchMedia
+      ? window.matchMedia(heroTouchSceneQuery).matches
+      : window.innerWidth <= 1023;
+    if (!usesTouchFrames) return;
+
+    const frames = Array.from({ length: heroMobileFrameCount }, (_, index) => {
+      const frame = new Image();
+      frame.src = heroMobileFrameSrc(index);
+      return frame;
+    });
+    return () => {
+      for (const frame of frames) frame.src = "";
+    };
+  }, []);
+  useEffect(() => {
     const scrubHeroFromScroll = () => {
       const track = heroTrack.current;
       if (!track) return;
@@ -892,11 +928,9 @@ function App() {
         );
       }
 
-      const currentVideo = video.current;
-      if (!currentVideo || !heroMetadataReady.current) return;
       // Fine-pointer desktop keeps the character timeline under horizontal
       // mouse control; page scroll is reserved for the panel reveal.
-      if (window.matchMedia?.(heroDesktopPointerQuery).matches) return;
+      if (isDesktopPointer) return;
       const reservesPanelReveal =
         window.matchMedia?.("(max-width: 767px)").matches ?? false;
       const scrollable = heroScrollScrubDistance(
@@ -907,6 +941,16 @@ function App() {
       // Desktop: the track collapses to the hero height, so there is
       // nothing to scrub and the pointer keeps driving the video.
       if (scrollable <= 0) return;
+      if (usesTouchScene && heroFallback.current) {
+        const nextFrame = heroScrollFrameIndex(-bounds.top, scrollable);
+        if (nextFrame !== lastMobileFrame.current) {
+          lastMobileFrame.current = nextFrame;
+          heroFallback.current.src = heroMobileFrameSrc(nextFrame);
+        }
+      }
+
+      const currentVideo = video.current;
+      if (!currentVideo || !heroMetadataReady.current) return;
       heroTargetTime.current = heroScrollVideoTime(
         -bounds.top,
         scrollable,
@@ -1103,7 +1147,8 @@ function App() {
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
           <img
             data-testid="hero-model-fallback"
-            src={MEDIA.hero.modelPoster}
+            ref={heroFallback}
+            src={heroMobileFrameSrc(0)}
             alt=""
             aria-hidden="true"
             draggable="false"
@@ -1117,7 +1162,7 @@ function App() {
             preload="auto"
             disablePictureInPicture
             aria-hidden="true"
-            className="hero-model-video pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"
+            className="hero-model-video hero-model-source pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"
           >
             <source src={MEDIA.hero.modelVideo} type='video/webm; codecs="vp9"' />
           </video>

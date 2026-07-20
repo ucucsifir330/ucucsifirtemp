@@ -16,7 +16,6 @@ export const MEDIA = {
   hero: {
     abstractSculpture: "/media/hero/abstract-sculpture.png",
     floatingCube: "/media/hero/floating-cube.png",
-    modelPoster: "/media/hero/hero-model-poster.png",
     modelVideo: "/media/hero/hero-model.webm",
     ringedPlanet: "/media/hero/ringed-planet.png",
   },

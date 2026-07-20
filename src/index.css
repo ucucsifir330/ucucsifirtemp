@@ -577,6 +577,7 @@ html body [class] {
 @media (max-width: 1023px), (hover: none), (pointer: coarse) {
   .hero-scroll-track { height: 260dvh; }
   .hero-scroll-track .hero-stage { position: sticky; top: 0; }
+  .hero-model-source { display: none; }
   .nav-brand,
   .nav-contact {
     transform: translate3d(0, var(--mobile-nav-shift), 0);
