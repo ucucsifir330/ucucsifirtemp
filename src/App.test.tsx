@@ -1419,6 +1419,123 @@ describe("hero scroll scrubbing", () => {
     expect(screen.getByTestId("hero-scroll-indicator")).not.toHaveClass("hidden");
   });
 
+  it("does not preload the hidden 24 MB hero video on touch devices", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(max-width: 1023px), (hover: none), (pointer: coarse)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    render(<App />);
+
+    expect(screen.getByTestId("hero-video")).toHaveAttribute("preload", "none");
+  });
+
+  it("keeps the decoded mobile frame cache bounded", () => {
+    const createdFrames: Array<{ src: string; decoding: string }> = [];
+    class TestImage {
+      decoding = "auto";
+      src = "";
+      complete = false;
+      naturalWidth = 0;
+
+      constructor() {
+        createdFrames.push(this);
+      }
+    }
+    vi.stubGlobal("Image", TestImage);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(max-width: 1023px), (hover: none), (pointer: coarse)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    render(<App />);
+
+    expect(createdFrames.length).toBeGreaterThan(0);
+    expect(createdFrames.length).toBeLessThanOrEqual(8);
+    expect(createdFrames.every((frame) => frame.decoding === "async")).toBe(true);
+  });
+
+  it("coalesces repeated mobile scroll events into one animation frame", () => {
+    vi.stubGlobal("innerHeight", 800);
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches:
+          query === "(max-width: 767px)" ||
+          query === "(max-width: 1023px), (hover: none), (pointer: coarse)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+
+    render(<App />);
+    const track = screen.getByTestId("hero-scroll-track");
+    const boundsSpy = vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+      ({ top: -320, height: 2880 }) as DOMRect,
+    );
+
+    fireEvent.scroll(window);
+    fireEvent.scroll(window);
+    fireEvent.scroll(window);
+
+    expect(boundsSpy).not.toHaveBeenCalled();
+    for (const callback of rafQueue.splice(0)) callback(0);
+    expect(boundsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not seek the hidden video while mobile frames drive the character", () => {
+    vi.stubGlobal("innerHeight", 800);
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches:
+          query === "(max-width: 767px)" ||
+          query === "(max-width: 1023px), (hover: none), (pointer: coarse)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+
+    render(<App />);
+    const hero = screen.getByTestId("hero-video") as HTMLVideoElement;
+    const track = screen.getByTestId("hero-scroll-track");
+    Object.defineProperty(hero, "duration", { configurable: true, value: 4 });
+    fireEvent.loadedMetadata(hero);
+    const firstPaintTime = hero.currentTime;
+    vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+      ({ top: -500, height: 2800 }) as DOMRect,
+    );
+
+    fireEvent.scroll(window);
+    for (const callback of rafQueue.splice(0)) callback(0);
+
+    expect(hero.currentTime).toBe(firstPaintTime);
+  });
+
   it("drives the mobile brand exit and copy reveal forward and backward from native scroll", () => {
     vi.stubGlobal("innerHeight", 800);
     vi.stubGlobal("innerWidth", 390);
@@ -1431,6 +1548,23 @@ describe("hero scroll scrubbing", () => {
         removeEventListener: vi.fn(),
       })),
     );
+    class ReadyImage {
+      decoding = "auto";
+      src = "";
+      complete = true;
+      naturalWidth = 1280;
+      onload: ((event: Event) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+    }
+    vi.stubGlobal("Image", ReadyImage);
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+    const flushAnimationFrames = () => {
+      for (const callback of rafQueue.splice(0)) callback(0);
+    };
 
     render(<App />);
     const shell = screen.getByTestId("site-shell");
@@ -1455,6 +1589,7 @@ describe("hero scroll scrubbing", () => {
 
     trackTop = -320;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(Number(shell.style.getPropertyValue("--mobile-nav-exit"))).toBeGreaterThan(0);
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
     expect(fallback).toHaveAttribute(
@@ -1464,6 +1599,7 @@ describe("hero scroll scrubbing", () => {
 
     trackTop = -800;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("1");
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("1");
     expect(fallback).toHaveAttribute(
@@ -1473,6 +1609,7 @@ describe("hero scroll scrubbing", () => {
 
     trackTop = 0;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("0");
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
     expect(fallback).toHaveAttribute(
@@ -1494,6 +1631,14 @@ describe("hero scroll scrubbing", () => {
         removeEventListener: vi.fn(),
       })),
     );
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+    const flushAnimationFrames = () => {
+      for (const callback of rafQueue.splice(0)) callback(0);
+    };
 
     render(<App />);
     const shell = screen.getByTestId("site-shell");
@@ -1513,11 +1658,13 @@ describe("hero scroll scrubbing", () => {
 
     trackTop = -320;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(Number(shell.style.getPropertyValue("--mobile-nav-exit"))).toBeGreaterThan(0);
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
 
     trackTop = -800;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(shell.style.getPropertyValue("--mobile-nav-exit")).toBe("1");
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("1");
   });
@@ -1562,6 +1709,14 @@ describe("hero scroll scrubbing", () => {
         removeEventListener: vi.fn(),
       })),
     );
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafQueue.push(callback);
+      return rafQueue.length;
+    });
+    const flushAnimationFrames = () => {
+      for (const callback of rafQueue.splice(0)) callback(0);
+    };
 
     render(<App />);
     const shell = screen.getByTestId("site-shell");
@@ -1594,6 +1749,7 @@ describe("hero scroll scrubbing", () => {
 
     trackTop = -400;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(
       Number(shell.style.getPropertyValue("--desktop-chrome-exit")),
     ).toBeGreaterThan(0);
@@ -1611,6 +1767,7 @@ describe("hero scroll scrubbing", () => {
 
     logoPanelTop = 400;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(
       Number(shell.style.getPropertyValue("--desktop-wordmark-exit")),
     ).toBeGreaterThan(0);
@@ -1622,12 +1779,14 @@ describe("hero scroll scrubbing", () => {
 
     logoPanelTop = 160;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(shell.style.getPropertyValue("--desktop-wordmark-exit")).toBe("1");
     expect(shell.style.getPropertyValue("--desktop-wordmark-opacity")).toBe("0");
 
     trackTop = 0;
     logoPanelTop = 1800;
     fireEvent.scroll(window);
+    flushAnimationFrames();
     expect(shell.style.getPropertyValue("--desktop-chrome-exit")).toBe("0");
     expect(shell.style.getPropertyValue("--desktop-chrome-shift")).toBe("0px");
     expect(shell.style.getPropertyValue("--desktop-chrome-opacity")).toBe("1");
@@ -1825,7 +1984,9 @@ describe("hero scroll scrubbing", () => {
       return rafQueue.length;
     });
     const flushAnimationFrames = () => {
-      for (const callback of rafQueue.splice(0)) callback(0);
+      while (rafQueue.length > 0) {
+        for (const callback of rafQueue.splice(0)) callback(0);
+      }
     };
 
     const { container } = render(<App />);

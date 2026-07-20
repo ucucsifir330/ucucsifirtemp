@@ -690,6 +690,9 @@ function ClavisFuturiSequence({
 }
 
 function App() {
+  const usesTouchHeroFrames = window.matchMedia
+    ? window.matchMedia(heroTouchSceneQuery).matches
+    : window.innerWidth <= 1023;
   const [entered, setEntered] = useState(false),
     [soundEnabled, setSoundEnabled] = useState(false),
     [audioGateOpen, setAudioGateOpen] = useState(true),
@@ -718,6 +721,8 @@ function App() {
     heroMetadataReady = useRef(false),
     heroSeeking = useRef(false),
     lastMobileFrame = useRef(0),
+    desiredMobileFrame = useRef(0),
+    mobileFrameCache = useRef(new Map<number, HTMLImageElement>()),
     lastHeroPointerX = useRef<number | null>(null);
   const audioGateReady = loadingPhase === "lift" || loadingPhase === "complete";
   const toggleSound = () => {
@@ -766,6 +771,74 @@ function App() {
         currentVideo.currentTime = heroTargetTime.current;
       }
     });
+  };
+  const primeMobileFrameWindow = (
+    centerFrame: number,
+    direction: 1 | -1,
+    commitCenter = true,
+  ) => {
+    const cache = mobileFrameCache.current;
+    const candidates = [
+      centerFrame,
+      centerFrame + direction,
+      centerFrame + direction * 2,
+      centerFrame + direction * 3,
+      centerFrame + direction * 4,
+      centerFrame + direction * 5,
+      centerFrame - direction,
+      centerFrame - direction * 2,
+    ].filter(
+      (frameIndex, index, frames) =>
+        frameIndex >= 0 &&
+        frameIndex < heroMobileFrameCount &&
+        frames.indexOf(frameIndex) === index,
+    );
+    const retainedFrames = new Set(candidates);
+
+    for (const frameIndex of candidates) {
+      let frame = cache.get(frameIndex);
+      const isNewFrame = !frame;
+      if (!frame) {
+        frame = new Image();
+        frame.decoding = "async";
+        cache.set(frameIndex, frame);
+      }
+
+      if (commitCenter && frameIndex === centerFrame) {
+        frame.onload = () => {
+          if (
+            desiredMobileFrame.current === frameIndex &&
+            heroFallback.current
+          ) {
+            heroFallback.current.src = heroMobileFrameSrc(frameIndex);
+          }
+        };
+        frame.onerror = () => {
+          if (cache.get(frameIndex) === frame) cache.delete(frameIndex);
+          if (desiredMobileFrame.current === frameIndex) {
+            lastMobileFrame.current = -1;
+          }
+        };
+      }
+
+      if (isNewFrame) frame.src = heroMobileFrameSrc(frameIndex);
+      if (
+        commitCenter &&
+        frameIndex === centerFrame &&
+        frame.complete &&
+        frame.naturalWidth > 0
+      ) {
+        frame.onload?.(new Event("load"));
+      }
+    }
+
+    for (const [frameIndex, frame] of cache) {
+      if (retainedFrames.has(frameIndex)) continue;
+      frame.onload = null;
+      frame.onerror = null;
+      frame.src = "";
+      cache.delete(frameIndex);
+    }
   };
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -829,18 +902,16 @@ function App() {
     return () => resizeObserver.disconnect();
   }, []);
   useEffect(() => {
-    const usesTouchFrames = window.matchMedia
-      ? window.matchMedia(heroTouchSceneQuery).matches
-      : window.innerWidth <= 1023;
-    if (!usesTouchFrames) return;
+    if (!usesTouchHeroFrames) return;
 
-    const frames = Array.from({ length: heroMobileFrameCount }, (_, index) => {
-      const frame = new Image();
-      frame.src = heroMobileFrameSrc(index);
-      return frame;
-    });
+    primeMobileFrameWindow(0, 1, false);
     return () => {
-      for (const frame of frames) frame.src = "";
+      for (const frame of mobileFrameCache.current.values()) {
+        frame.onload = null;
+        frame.onerror = null;
+        frame.src = "";
+      }
+      mobileFrameCache.current.clear();
     };
   }, []);
   useEffect(() => {
@@ -941,12 +1012,16 @@ function App() {
       // Desktop: the track collapses to the hero height, so there is
       // nothing to scrub and the pointer keeps driving the video.
       if (scrollable <= 0) return;
-      if (usesTouchScene && heroFallback.current) {
+      if (usesTouchScene) {
         const nextFrame = heroScrollFrameIndex(-bounds.top, scrollable);
         if (nextFrame !== lastMobileFrame.current) {
+          const direction =
+            nextFrame >= desiredMobileFrame.current ? 1 : -1;
+          desiredMobileFrame.current = nextFrame;
           lastMobileFrame.current = nextFrame;
-          heroFallback.current.src = heroMobileFrameSrc(nextFrame);
+          primeMobileFrameWindow(nextFrame, direction);
         }
+        return;
       }
 
       const currentVideo = video.current;
@@ -958,12 +1033,21 @@ function App() {
       );
       scheduleHeroSeek();
     };
+    let scrollRaf: number | null = null;
+    const scheduleHeroScrub = () => {
+      if (scrollRaf !== null) return;
+      scrollRaf = window.requestAnimationFrame(() => {
+        scrollRaf = null;
+        scrubHeroFromScroll();
+      });
+    };
     scrubHeroFromScroll();
-    window.addEventListener("scroll", scrubHeroFromScroll, { passive: true });
-    window.addEventListener("resize", scrubHeroFromScroll);
+    window.addEventListener("scroll", scheduleHeroScrub, { passive: true });
+    window.addEventListener("resize", scheduleHeroScrub);
     return () => {
-      window.removeEventListener("scroll", scrubHeroFromScroll);
-      window.removeEventListener("resize", scrubHeroFromScroll);
+      window.removeEventListener("scroll", scheduleHeroScrub);
+      window.removeEventListener("resize", scheduleHeroScrub);
+      if (scrollRaf !== null) window.cancelAnimationFrame(scrollRaf);
     };
   }, []);
   useEffect(() => {
@@ -1159,7 +1243,7 @@ function App() {
             ref={video}
             muted
             playsInline
-            preload="auto"
+            preload={usesTouchHeroFrames ? "none" : "auto"}
             disablePictureInPicture
             aria-hidden="true"
             className="hero-model-video hero-model-source pointer-events-none absolute bottom-0 left-1/2 w-auto max-w-none object-contain object-center lg:left-[72%]"
