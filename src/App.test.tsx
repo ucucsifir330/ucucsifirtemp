@@ -1435,7 +1435,7 @@ describe("hero scroll scrubbing", () => {
     expect(screen.getByTestId("hero-video")).toHaveAttribute("preload", "none");
   });
 
-  it("keeps the decoded mobile frame cache bounded", () => {
+  it("preloads every optimized mobile frame before scroll scrubbing", () => {
     const createdFrames: Array<{ src: string; decoding: string }> = [];
     class TestImage {
       decoding = "auto";
@@ -1460,9 +1460,14 @@ describe("hero scroll scrubbing", () => {
 
     render(<App />);
 
-    expect(createdFrames.length).toBeGreaterThan(0);
-    expect(createdFrames.length).toBeLessThanOrEqual(8);
+    expect(createdFrames).toHaveLength(61);
     expect(createdFrames.every((frame) => frame.decoding === "async")).toBe(true);
+    expect(createdFrames[0]?.src).toBe(
+      "/media/hero/frames-mobile/hero-model-001.webp",
+    );
+    expect(createdFrames[60]?.src).toBe(
+      "/media/hero/frames-mobile/hero-model-061.webp",
+    );
   });
 
   it("coalesces repeated mobile scroll events into one animation frame", () => {
@@ -1548,15 +1553,6 @@ describe("hero scroll scrubbing", () => {
         removeEventListener: vi.fn(),
       })),
     );
-    class ReadyImage {
-      decoding = "auto";
-      src = "";
-      complete = true;
-      naturalWidth = 1280;
-      onload: ((event: Event) => void) | null = null;
-      onerror: ((event: Event) => void) | null = null;
-    }
-    vi.stubGlobal("Image", ReadyImage);
     const rafQueue: FrameRequestCallback[] = [];
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       rafQueue.push(callback);
@@ -1572,7 +1568,7 @@ describe("hero scroll scrubbing", () => {
     const fallback = screen.getByTestId("hero-model-fallback");
     expect(fallback).toHaveAttribute(
       "src",
-      "/media/hero/frames/hero-model-001.webp",
+      "/media/hero/frames-mobile/hero-model-001.webp",
     );
     let trackTop = 0;
     vi.spyOn(track, "getBoundingClientRect").mockImplementation(
@@ -1594,7 +1590,7 @@ describe("hero scroll scrubbing", () => {
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
     expect(fallback).toHaveAttribute(
       "src",
-      "/media/hero/frames/hero-model-016.webp",
+      "/media/hero/frames-mobile/hero-model-016.webp",
     );
 
     trackTop = -800;
@@ -1604,7 +1600,7 @@ describe("hero scroll scrubbing", () => {
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("1");
     expect(fallback).toHaveAttribute(
       "src",
-      "/media/hero/frames/hero-model-039.webp",
+      "/media/hero/frames-mobile/hero-model-039.webp",
     );
 
     trackTop = 0;
@@ -1614,7 +1610,7 @@ describe("hero scroll scrubbing", () => {
     expect(shell.style.getPropertyValue("--mobile-copy-reveal")).toBe("0");
     expect(fallback).toHaveAttribute(
       "src",
-      "/media/hero/frames/hero-model-001.webp",
+      "/media/hero/frames-mobile/hero-model-001.webp",
     );
   });
 
@@ -2134,7 +2130,7 @@ it("shows the independent hero fallback only on mobile and touch devices", () =>
   const video = container.querySelector('[data-testid="hero-video"]');
   expect(
     fallback?.getAttribute("src"),
-  ).toBe("/media/hero/frames/hero-model-001.webp");
+  ).toBe("/media/hero/frames-mobile/hero-model-001.webp");
   expect(fallback).toHaveClass("hero-model-fallback");
   expect(video).not.toHaveAttribute("poster");
   expect(video).toHaveClass("hero-model-source");
@@ -2147,7 +2143,7 @@ it("shows the independent hero fallback only on mobile and touch devices", () =>
     /@media \(max-width: 1023px\), \(hover: none\), \(pointer: coarse\) \{[\s\S]*?\.hero-model-source\s*\{[^}]*display:\s*none;/,
   );
   expect(
-    existsSync("public/media/hero/frames/hero-model-061.webp"),
+    existsSync("public/media/hero/frames-mobile/hero-model-061.webp"),
   ).toBe(true);
 });
 

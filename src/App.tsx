@@ -93,7 +93,7 @@ export const heroMobileFrameSrc = (frameIndex: number) => {
     heroMobileFrameCount - 1,
     Math.max(0, Math.round(frameIndex)),
   );
-  return `/media/hero/frames/hero-model-${String(safeFrame + 1).padStart(3, "0")}.webp`;
+  return `/media/hero/frames-mobile/hero-model-${String(safeFrame + 1).padStart(3, "0")}.webp`;
 };
 
 export const stackPanelStickyTop = (
@@ -721,8 +721,6 @@ function App() {
     heroMetadataReady = useRef(false),
     heroSeeking = useRef(false),
     lastMobileFrame = useRef(0),
-    desiredMobileFrame = useRef(0),
-    mobileFrameCache = useRef(new Map<number, HTMLImageElement>()),
     lastHeroPointerX = useRef<number | null>(null);
   const audioGateReady = loadingPhase === "lift" || loadingPhase === "complete";
   const toggleSound = () => {
@@ -771,74 +769,6 @@ function App() {
         currentVideo.currentTime = heroTargetTime.current;
       }
     });
-  };
-  const primeMobileFrameWindow = (
-    centerFrame: number,
-    direction: 1 | -1,
-    commitCenter = true,
-  ) => {
-    const cache = mobileFrameCache.current;
-    const candidates = [
-      centerFrame,
-      centerFrame + direction,
-      centerFrame + direction * 2,
-      centerFrame + direction * 3,
-      centerFrame + direction * 4,
-      centerFrame + direction * 5,
-      centerFrame - direction,
-      centerFrame - direction * 2,
-    ].filter(
-      (frameIndex, index, frames) =>
-        frameIndex >= 0 &&
-        frameIndex < heroMobileFrameCount &&
-        frames.indexOf(frameIndex) === index,
-    );
-    const retainedFrames = new Set(candidates);
-
-    for (const frameIndex of candidates) {
-      let frame = cache.get(frameIndex);
-      const isNewFrame = !frame;
-      if (!frame) {
-        frame = new Image();
-        frame.decoding = "async";
-        cache.set(frameIndex, frame);
-      }
-
-      if (commitCenter && frameIndex === centerFrame) {
-        frame.onload = () => {
-          if (
-            desiredMobileFrame.current === frameIndex &&
-            heroFallback.current
-          ) {
-            heroFallback.current.src = heroMobileFrameSrc(frameIndex);
-          }
-        };
-        frame.onerror = () => {
-          if (cache.get(frameIndex) === frame) cache.delete(frameIndex);
-          if (desiredMobileFrame.current === frameIndex) {
-            lastMobileFrame.current = -1;
-          }
-        };
-      }
-
-      if (isNewFrame) frame.src = heroMobileFrameSrc(frameIndex);
-      if (
-        commitCenter &&
-        frameIndex === centerFrame &&
-        frame.complete &&
-        frame.naturalWidth > 0
-      ) {
-        frame.onload?.(new Event("load"));
-      }
-    }
-
-    for (const [frameIndex, frame] of cache) {
-      if (retainedFrames.has(frameIndex)) continue;
-      frame.onload = null;
-      frame.onerror = null;
-      frame.src = "";
-      cache.delete(frameIndex);
-    }
   };
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -902,16 +832,19 @@ function App() {
     return () => resizeObserver.disconnect();
   }, []);
   useEffect(() => {
-    if (!usesTouchHeroFrames) return;
+    const usesTouchFrames = window.matchMedia
+      ? window.matchMedia(heroTouchSceneQuery).matches
+      : window.innerWidth <= 1023;
+    if (!usesTouchFrames) return;
 
-    primeMobileFrameWindow(0, 1, false);
+    const frames = Array.from({ length: heroMobileFrameCount }, (_, index) => {
+      const frame = new Image();
+      frame.decoding = "async";
+      frame.src = heroMobileFrameSrc(index);
+      return frame;
+    });
     return () => {
-      for (const frame of mobileFrameCache.current.values()) {
-        frame.onload = null;
-        frame.onerror = null;
-        frame.src = "";
-      }
-      mobileFrameCache.current.clear();
+      for (const frame of frames) frame.src = "";
     };
   }, []);
   useEffect(() => {
@@ -1015,11 +948,10 @@ function App() {
       if (usesTouchScene) {
         const nextFrame = heroScrollFrameIndex(-bounds.top, scrollable);
         if (nextFrame !== lastMobileFrame.current) {
-          const direction =
-            nextFrame >= desiredMobileFrame.current ? 1 : -1;
-          desiredMobileFrame.current = nextFrame;
           lastMobileFrame.current = nextFrame;
-          primeMobileFrameWindow(nextFrame, direction);
+          if (heroFallback.current) {
+            heroFallback.current.src = heroMobileFrameSrc(nextFrame);
+          }
         }
         return;
       }
